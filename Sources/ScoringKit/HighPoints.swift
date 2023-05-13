@@ -28,7 +28,7 @@ public struct HighPoints: Points {
         self.possiblePoints = possiblePoints
     }
     
-    public init(result: Result?,
+    public init(result: RaceResult?,
                 isLongSeries: Bool,
                 competitorsInStartingArea: Int,
                 competitorsInSeries: Int) {

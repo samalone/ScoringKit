@@ -1,6 +1,6 @@
 import Foundation
 
-public enum Result: Equatable {
+public enum RaceResult: Equatable {
     case racing         // Still racing
     case finished(Int)  // Completed the race normally
     
@@ -16,7 +16,7 @@ public enum Result: Equatable {
     case rdg    // Redress given
     case zfp    // 20% penalty under rule 30.2
     
-    public static let allSpecial: [Result] = [
+    public static let allSpecial: [RaceResult] = [
         .dnc, .dnf, .dns,
         .ocs, .bfd, .scp,
         .raf, .dsq, .dne,
@@ -31,7 +31,7 @@ public enum Result: Equatable {
     }
 }
 
-extension Result: CustomStringConvertible {
+extension RaceResult: CustomStringConvertible {
     public var description: String {
         switch self {
         case .racing:
@@ -64,7 +64,7 @@ extension Result: CustomStringConvertible {
     }
 }
 
-extension Result: ExpressibleByStringLiteral {
+extension RaceResult: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
         switch value {
         case "": self = .racing
@@ -90,7 +90,7 @@ extension Result: ExpressibleByStringLiteral {
     }
 }
 
-extension Result: ExpressibleByIntegerLiteral {
+extension RaceResult: ExpressibleByIntegerLiteral {
     public init(integerLiteral value: Int) {
         self = .finished(value)
     }

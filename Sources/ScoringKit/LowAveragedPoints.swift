@@ -32,7 +32,7 @@ struct LowAveragedPoints: Points {
         self.races = races
     }
     
-    init(result: Result?,
+    init(result: RaceResult?,
          isLongSeries: Bool,
          competitorsInStartingArea: Int,
          competitorsInSeries: Int) {

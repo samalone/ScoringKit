@@ -13,7 +13,7 @@ public protocol Points: Comparable, CustomStringConvertible, CustomDebugStringCo
     static var systemName: String { get }
     
     init()
-    init(result: Result?,
+    init(result: RaceResult?,
          isLongSeries: Bool,
          competitorsInStartingArea: Int,
          competitorsInSeries: Int)

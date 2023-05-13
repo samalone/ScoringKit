@@ -30,7 +30,7 @@ public struct ScoringSystem<PointsType: Points> {
         qualifyLimit = qualify
     }
     
-    func collectSkippers<RaceType: Race>(_ races: [RaceType]) -> Set<RaceType.CompetitorType> {
+    func collectCompetitors<RaceType: Race>(_ races: [RaceType]) -> Set<RaceType.CompetitorType> {
         var competitors: Set<RaceType.CompetitorType> = Set()
         for race in races {
             for result in race.results {
@@ -40,12 +40,12 @@ public struct ScoringSystem<PointsType: Points> {
         return competitors
     }
     
-    func collectRaceScores<RaceType: Race>(_ skipper: RaceType.CompetitorType, races: [RaceType], competitorsInSeries: Int, exclusions: Int) -> [RaceScore<PointsType>] {
+    func collectRaceScores<RaceType: Race>(_ competitor: RaceType.CompetitorType, races: [RaceType], competitorsInSeries: Int, exclusions: Int) -> [RaceScore<PointsType>] {
         assert(exclusions < races.count)
         let places = races.map {
             (race) in
             RaceScore<PointsType>(race: race,
-                                  result: race.results[skipper],
+                                  result: race.results[competitor],
                                   isLongSeries: isLongSeries,
                                   competitorsInStartingArea: race.competitorsInStartingArea,
                                   competitorsInSeries: competitorsInSeries)
@@ -85,37 +85,37 @@ public struct ScoringSystem<PointsType: Points> {
         }
     }
     
-    func collectRaceScores<RaceType: Race>(_ skippers: Set<RaceType.CompetitorType>, races: [RaceType], exclusions: Int) -> [RaceType.CompetitorType: [RaceScore<PointsType>]] {
-        var skipperRaceScores: [RaceType.CompetitorType: [RaceScore<PointsType>]] = [:]
-        for skip in skippers {
-            skipperRaceScores[skip] = collectRaceScores(skip, races: races, competitorsInSeries: skippers.count, exclusions: exclusions)
+    func collectRaceScores<RaceType: Race>(_ competitors: Set<RaceType.CompetitorType>, races: [RaceType], exclusions: Int) -> [RaceType.CompetitorType: [RaceScore<PointsType>]] {
+        var competitorRaceScores: [RaceType.CompetitorType: [RaceScore<PointsType>]] = [:]
+        for skip in competitors {
+            competitorRaceScores[skip] = collectRaceScores(skip, races: races, competitorsInSeries: competitors.count, exclusions: exclusions)
         }
-        return skipperRaceScores
+        return competitorRaceScores
     }
     
-    func placePoints<CompetitorType: Competitor>(_ result: Result, skippers: Set<CompetitorType>) -> Float {
+    func placePoints<CompetitorType: Competitor>(_ result: RaceResult, competitors: Set<CompetitorType>) -> Float {
         switch result {
             case .finished(let position):
                 return Float(position)
             default:
-                return Float(skippers.count + 1)
+                return Float(competitors.count + 1)
         }
     }
     
-    public func calculateScores<RaceType: Race>(_ races: [RaceType]) -> [Score<PointsType>] {
+    public func calculateScores<RaceType: Race>(_ races: [RaceType]) -> [SeriesScore<RaceType.CompetitorType, PointsType>] {
         print("\(races.count) races")
         let racesToQualify = qualifyLimit.calculate(races.count)
         print("\(racesToQualify) to qualify")
         let exclusions = excludeLimit.calculate(races.count)
         print("\(exclusions) throw outs")
-        let skippers = collectSkippers(races)
-        let skipperRaceScores = collectRaceScores(skippers, races: races, exclusions: exclusions)
-        var scores: [Score<PointsType>] = []
-        for skip in skippers {
-            let totalPoints = skipperRaceScores[skip]!.map({$0.excluded ? PointsType() : $0.points}).reduce(PointsType(), +)
-            let sailed: Int = skipperRaceScores[skip]!.map({($0.result == .dnc) ? 0 : 1}).reduce(0, +)
+        let competitors = collectCompetitors(races)
+        let competitorRaceScores = collectRaceScores(competitors, races: races, exclusions: exclusions)
+        var scores: [SeriesScore<RaceType.CompetitorType, PointsType>] = []
+        for competitor in competitors {
+            let totalPoints = competitorRaceScores[competitor]!.map({$0.excluded ? PointsType() : $0.points}).reduce(PointsType(), +)
+            let sailed: Int = competitorRaceScores[competitor]!.map({($0.result == .dnc) ? 0 : 1}).reduce(0, +)
             let qualified = (sailed >= racesToQualify)
-            scores.append(Score(competitor: skip, racesSailed: sailed, totalPoints: totalPoints, qualified: qualified, raceScores: skipperRaceScores[skip]!))
+            scores.append(SeriesScore(competitor: competitor, racesSailed: sailed, totalPoints: totalPoints, qualified: qualified, raceScores: competitorRaceScores[competitor]!))
         }
         sortScores(&scores)
         for i in scores.indices {
@@ -126,7 +126,7 @@ public struct ScoringSystem<PointsType: Points> {
         for score in scores {
             let q = score.qualified ? "Q" : "NQ"
             print("\(score.competitor.name) \(q) \(score.totalPointsDescription): ")
-            for rs in score.genericRaceScores {
+            for rs in score.raceScores {
                 if rs.excluded {
                     print("(\(rs.pointsDescription)) ", terminator: "")
                 }
@@ -169,7 +169,7 @@ public struct ScoringSystem<PointsType: Points> {
         return .unordered
     }
     
-    func sortScores(_ scores: inout [Score<PointsType>]) {
+    func sortScores<CompetitorType: Competitor>(_ scores: inout [SeriesScore<CompetitorType, PointsType>]) {
         scores.sort {
             if $0.qualified && !$1.qualified {
                 return true

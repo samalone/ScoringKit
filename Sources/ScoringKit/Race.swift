@@ -13,7 +13,7 @@ public protocol Race {
     /// The race ID can be any short string (date, time, course letter, course number, etc.)
     /// to identify the race. It should be short to fit cleanly in HTML tables.
     var id: String { get }
-    var results: [CompetitorType: Result] { get }
+    var results: [CompetitorType: RaceResult] { get }
 }
 
 public extension Race {

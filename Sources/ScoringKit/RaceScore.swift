@@ -8,23 +8,15 @@
 
 import Foundation
 
-public protocol GenericRaceScore {
-    var result: Result { get }
-    var excluded: Bool { get }
-    
-    var pointsDescription: String { get }
-    var pointsDebugDescription: String { get }
-}
-
-// The score for a skipper in a particular race.
+// The score for a competitor in a particular race.
 // This is essentially an intermediate step in calculating scores for
 // a regatta or long series, but it is useful to standardize it both
 // for code sharing and to display the calculations.
 
-public class RaceScore<PointsType:Points>: Comparable, GenericRaceScore {
-    // These two fields are copied from the Results for a particular skipper,
+public class RaceScore<PointsType:Points> {
+    // These two fields are copied from the Results for a particular competitor,
     // and do not change during the scoring process.
-    public let result: Result
+    public let result: RaceResult
     public let points: PointsType
 
     // These fields are computed as part of the scoring process,
@@ -36,7 +28,7 @@ public class RaceScore<PointsType:Points>: Comparable, GenericRaceScore {
         self.points = PointsType()
     }
     
-    init(race: any Race, result: Result?, isLongSeries: Bool,
+    init(race: any Race, result: RaceResult?, isLongSeries: Bool,
          competitorsInStartingArea: Int, competitorsInSeries: Int) {
         self.result = result ?? .dnc
         self.points = PointsType(result: result,
@@ -54,10 +46,14 @@ public class RaceScore<PointsType:Points>: Comparable, GenericRaceScore {
     }
 }
 
-public func ==<PointsType> (a: RaceScore<PointsType>, b: RaceScore<PointsType>) -> Bool {
-    return a.points == b.points
+extension RaceScore: Equatable {
+    public static func ==<PointsType> (a: RaceScore<PointsType>, b: RaceScore<PointsType>) -> Bool {
+        return a.points == b.points
+    }
 }
 
-public func < <PointsType> (a: RaceScore<PointsType>, b: RaceScore<PointsType>) -> Bool {
-    return a.points < b.points
+extension RaceScore: Comparable {
+    public static func < <PointsType> (a: RaceScore<PointsType>, b: RaceScore<PointsType>) -> Bool {
+        return a.points < b.points
+    }
 }
