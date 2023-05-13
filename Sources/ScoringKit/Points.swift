@@ -9,11 +9,13 @@ import Foundation
 
 /// "Points" are an abstract measurement of a competitor's standing in a regatta.
 /// Several different point systems are available, but all adhere to this protocol.
-public protocol Points: Comparable {
+public protocol Points: Comparable, CustomStringConvertible, CustomDebugStringConvertible {
+    static var systemName: String { get }
+    
     init()
     init(result: Result?,
          isLongSeries: Bool,
-         competitorsInRace: Int,
+         competitorsInStartingArea: Int,
          competitorsInSeries: Int)
     
     static func +(lhs: Self, rhs: Self) -> Self

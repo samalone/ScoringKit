@@ -15,3 +15,9 @@ public protocol Race {
     var id: String { get }
     var results: [CompetitorType: Result] { get }
 }
+
+public extension Race {
+    var competitorsInStartingArea: Int {
+        return results.map({($0.value == .dnc) ? 0 : 1}).reduce(0, +)
+    }
+}

@@ -30,3 +30,68 @@ public enum Result: Equatable {
         return self != .dne
     }
 }
+
+extension Result: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .racing:
+            return ""
+        case .finished(let position):
+            return position.description
+        case .dnc:
+            return "DNC"
+        case .dns:
+            return "DNS"
+        case .ocs:
+            return "OCS"
+        case .bfd:
+            return "BFD"
+        case .scp:
+            return "SCP"
+        case .dnf:
+            return "DNF"
+        case .raf:
+            return "RAF"
+        case .dsq:
+            return "DSQ"
+        case .dne:
+            return "DNE"
+        case .rdg:
+            return "RDG"
+        case .zfp:
+            return "ZFP"
+        }
+    }
+}
+
+extension Result: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) {
+        switch value {
+        case "": self = .racing
+        case "DNC": self = .dnc
+        case "DNS": self = .dns
+        case "OCS": self = .ocs
+        case "BFD": self = .bfd
+        case "SCP": self = .scp
+        case "DNF": self = .dnf
+        case "RAF": self = .raf
+        case "DSQ": self = .dsq
+        case "DNE": self = .dne
+        case "RDG": self = .rdg
+        case "ZFP": self = .zfp
+        default:
+            if let position = Int(value) {
+                self = .finished(position)
+            }
+            else {
+                self = .racing
+            }
+        }
+    }
+}
+
+extension Result: ExpressibleByIntegerLiteral {
+    public init(integerLiteral value: Int) {
+        self = .finished(value)
+    }
+}

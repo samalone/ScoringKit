@@ -26,20 +26,19 @@ public struct LowPoints: Points {
     
     public init(result: Result?,
                 isLongSeries: Bool,
-                competitorsInRace: Int,
+                competitorsInStartingArea: Int,
                 competitorsInSeries: Int) {
-        if let result = result {
-            switch result {
-            case .finished(let position):
-                points = position
-            case .dnc:
-                points = competitorsInSeries + 1
-            default:
-                points = isLongSeries ? (competitorsInRace + 1) : (competitorsInSeries + 1)
-            }
-        }
-        else {
+        guard let result else {
             points = competitorsInSeries + 1
+            return
+        }
+        switch result {
+        case .finished(let position):
+            points = position
+        case .dnc:
+            points = competitorsInSeries + 1
+        default:
+            points = isLongSeries ? (competitorsInStartingArea + 1) : (competitorsInSeries + 1)
         }
     }
     
