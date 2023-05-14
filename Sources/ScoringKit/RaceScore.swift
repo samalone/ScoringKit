@@ -13,11 +13,11 @@ import Foundation
 // a regatta or long series, but it is useful to standardize it both
 // for code sharing and to display the calculations.
 
-public class RaceScore<PointsType:Points> {
+public class RaceScore {
     // These two fields are copied from the Results for a particular competitor,
     // and do not change during the scoring process.
     public let result: RaceResult
-    public let points: PointsType
+    public let points: Points
 
     // These fields are computed as part of the scoring process,
     // and may change during different phases of scoring.
@@ -25,35 +25,12 @@ public class RaceScore<PointsType:Points> {
     
     init() {
         self.result = .dnc
-        self.points = PointsType()
+        self.points = Points()
     }
     
-    init(race: any Race, result: RaceResult?, isLongSeries: Bool,
-         competitorsInStartingArea: Int, competitorsInSeries: Int) {
-        self.result = result ?? .dnc
-        self.points = PointsType(result: result,
-                                 isLongSeries: isLongSeries,
-                                 competitorsInStartingArea: competitorsInStartingArea,
-                                 competitorsInSeries: competitorsInSeries)
+    init(result: RaceResult, points: Points) {
+        self.result = result
+        self.points = points
     }
     
-    public var pointsDescription: String {
-        return points.description
-    }
-    
-    public var pointsDebugDescription: String {
-        return points.debugDescription
-    }
-}
-
-extension RaceScore: Equatable {
-    public static func ==<PointsType> (a: RaceScore<PointsType>, b: RaceScore<PointsType>) -> Bool {
-        return a.points == b.points
-    }
-}
-
-extension RaceScore: Comparable {
-    public static func < <PointsType> (a: RaceScore<PointsType>, b: RaceScore<PointsType>) -> Bool {
-        return a.points < b.points
-    }
 }

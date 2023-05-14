@@ -8,21 +8,13 @@
 
 import CoreData
 
-public struct SeriesScore<CompetitorType: Competitor, PointsType:Points> {
+public struct SeriesScore<CompetitorType: Competitor> {
     public let competitor: CompetitorType
     public let racesSailed: Int
-    public let totalPoints: PointsType
+    public let totalPoints: Points
     public let qualified: Bool
     public var rank: Int? = nil
-    public let raceScores: [RaceScore<PointsType>]
-    
-    public var totalPointsDescription: String {
-        return totalPoints.description
-    }
-    
-    public var totalPointsDebugDescription: String {
-        return totalPoints.debugDescription
-    }
+    public let raceScores: [RaceScore]
     
     var textRank: String {
         if let rank = rank {
@@ -31,19 +23,5 @@ public struct SeriesScore<CompetitorType: Competitor, PointsType:Points> {
         else {
             return "NQ"
         }
-    }
-    
-    public var htmlTableRow: String {
-        var row = "<tr><td>\(competitor.name)</td>"
-        for raceScore in raceScores {
-            let classes = raceScore.excluded ? "n t" : "n"
-            row += "<td class='\(classes)'>\(raceScore.result)</td>"
-        }
-        row += "<td class='n'>\(totalPointsDescription)</td><td class='n'>\(textRank)</td></tr>"
-        return row
-    }
-    
-    public var plainText: String {
-        return "\(textRank): \(competitor.name) \(totalPointsDescription)"
     }
 }

@@ -8,17 +8,37 @@
 import Foundation
 
 /// "Points" are an abstract measurement of a competitor's standing in a regatta.
-/// Several different point systems are available, but all adhere to this protocol.
-public protocol Points: Comparable, CustomStringConvertible, CustomDebugStringConvertible {
-    static var systemName: String { get }
+/// Although all scoring systems use the same structure to store Points, the interpretation
+/// and manipulation of Points depends on the scoring system.
+///
+/// Note that we intentionally do no make Points Equatable or Comparable, because
+/// the meaning of equality and comparison depends on the scoring system.
+public struct Points {
+    public var numerator: Int
+    public var denominator: Int
     
-    init()
-    init(result: RaceResult?,
-         isLongSeries: Bool,
-         competitorsInStartingArea: Int,
-         competitorsInSeries: Int)
+    init() {
+        numerator = 0
+        denominator = 0
+    }
     
-    static func +(lhs: Self, rhs: Self) -> Self
+    init(_ n: Int) {
+        numerator = n
+        denominator = 1
+    }
     
-    static func +=(lhs: inout Self, rhs: Self)
+    init(numerator: Int, denominator: Int) {
+        self.numerator = numerator
+        self.denominator = denominator
+    }
+    
+    static func +(lhs: Points, rhs: Points) -> Points {
+        return Points(numerator: lhs.numerator + rhs.numerator,
+                      denominator: lhs.denominator + rhs.denominator)
+    }
+    
+    static func += (lhs: inout Points, rhs: Points) {
+        lhs.numerator += rhs.numerator
+        lhs.denominator += rhs.denominator
+    }
 }
