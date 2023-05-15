@@ -33,10 +33,10 @@ func regattaColumns() -> [TableColumn<MyRace>] {
     return [ .place, .competitor("Skipper"), .race({ _ in
         raceNumber += 1
         return "\(raceNumber)"
-    }), .score]
+    }), .racesSailed, .bestThrowout, .score]
 }
 
-let seriesColumns: [TableColumn<MyRace>] = [.place, .competitor("Skipper"), .racesSailed, .score]
+let seriesColumns: [TableColumn<MyRace>] = [.place, .competitor("Skipper"), .racesSailed, .bestThrowout, .score]
 
 final class SeriesScoringTests: XCTestCase {
     func testExample() throws {
@@ -107,7 +107,7 @@ final class SeriesScoringTests: XCTestCase {
         
         let scoring = SeriesScoring(scoringSystem: HighPointSystem(), longSeries: true, exclude: .upTo(1), qualify: .abovePercent(75))
         let scores = scoring.calculateScores(races)
-        let html = scoring.toHTML(races: races, scores: scores, columns: regattaColumns(), debug: true)
+        let html = scoring.toHTML(races: races, scores: scores, columns: regattaColumns(), debug: false)
         print(html)
     }
 }

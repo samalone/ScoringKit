@@ -203,6 +203,8 @@ public struct SeriesScoring {
                 result += "<th class='place'></th>"
             case .racesSailed:
                 result += "<th class='races-sailed'>Races sailed</th>"
+            case .bestThrowout:
+                result += "<th class='best-throwout'>Best throwout</th>"
             }
         }
         result += "</tr></thead>"
@@ -237,6 +239,12 @@ public struct SeriesScoring {
                     result += "</td>"
                 case .racesSailed:
                     result += "<td class='races-sailed'>\(score.racesSailed)</td>"
+                case .bestThrowout:
+                    result += "<td class='best-throwout'>"
+                    if let bestThrowout = score.raceScores.filter({$0.excluded}).sorted(by: {scoringSystem.betterScore($0.points, $1.points)}).first {
+                        result += scoringSystem.describe(score: bestThrowout, debug: debug)
+                    }
+                    result += "</td>"
                 }
             }
             result += "</tr>"
@@ -294,6 +302,7 @@ public enum TableColumn<RaceType: Race> {
     case score
     case place
     case racesSailed
+    case bestThrowout
 }
 
 // The default scoring system in Appendix A allows 1 exclusion and no minimum to qualify.

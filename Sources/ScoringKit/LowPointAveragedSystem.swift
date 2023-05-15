@@ -35,8 +35,10 @@ public struct LowPointAveragedSystem: ScoringSystem {
             return ""
         case .finished(let position):
             return "\(position)"
+        case .dnc:
+            return score.result.description
         default:
-            return "\(score.result.description) \(describe(score.points))"
+            return score.result.description + (debug ? " \(score.points.numerator)" : "")
         }
     }
 }
