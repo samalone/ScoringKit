@@ -16,6 +16,16 @@ public protocol ScoringSystem {
                       competitorsInSeries: Int) -> Points
     func betterScore(_ lhs: Points, _ rhs: Points) -> Bool
     func sameScore(_ lhs: Points, _ rhs: Points) -> Bool
-    func description(_ points: Points) -> String
-    func debugDescription(_ points: Points) -> String
+    func describe(_ points: Points, debug: Bool) -> String
+    func describe(score: RaceScore, debug: Bool) -> String
+}
+
+extension ScoringSystem {
+    public func describe(_ points: Points) -> String {
+        describe(points, debug: false)
+    }
+    
+    public func describe(score: RaceScore) -> String {
+        describe(score: score, debug: false)
+    }
 }

@@ -33,12 +33,21 @@ public struct HighPointSystem: ScoringSystem {
         return (lhs.numerator * rhs.denominator) == (rhs.numerator * lhs.denominator)
     }
     
-    public func description(_ points: Points) -> String {
+    public func describe(_ points: Points, debug: Bool) -> String {
         guard points.denominator != 0 else { return "-" }
-        return String(format: "%.2f", Double(points.numerator) / Double(points.denominator))
+        return (debug ? "\(points.numerator)/\(points.denominator) " : "") + String(format: "%#.3f", Double(points.numerator) / Double(points.denominator))
     }
     
-    public func debugDescription(_ points: Points) -> String {
-        return "\(points.numerator)/\(points.denominator)"
+    public func describe(score: RaceScore, debug: Bool) -> String {
+        switch score.result {
+        case .racing:
+            return ""
+        case .finished(let position):
+            return "\(position)" + (debug ? " \(score.points.numerator)/\(score.points.denominator)" : "")
+        case .dnc:
+            return score.result.description
+        default:
+            return "\(score.result.description)" + (debug ? " \(score.points.numerator)/\(score.points.denominator)" : " 0")
+        }
     }
 }

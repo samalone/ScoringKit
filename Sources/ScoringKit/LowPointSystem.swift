@@ -33,11 +33,18 @@ public struct LowPointSystem: ScoringSystem {
         return lhs.numerator == rhs.numerator
     }
     
-    public func description(_ points: Points) -> String {
+    public func describe(_ points: Points, debug: Bool) -> String {
         return points.numerator.description
     }
     
-    public func debugDescription(_ points: Points) -> String {
-        return points.numerator.description
+    public func describe(score: RaceScore, debug: Bool) -> String {
+        switch score.result {
+        case .racing:
+            return ""
+        case .finished(let position):
+            return "\(position)"
+        default:
+            return "\(score.result.description) \(describe(score.points))"
+        }
     }
 }

@@ -104,13 +104,13 @@ public struct SeriesScoring {
         }
         for score in scores {
             let q = score.qualified ? "Q" : "NQ"
-            print("\(score.competitor.name) \(q) \(scoringSystem.description(score.totalPoints)): ")
+            print("\(score.competitor.name) \(q) \(scoringSystem.describe(score.totalPoints)): ")
             for rs in score.raceScores {
                 if rs.excluded {
-                    print("(\(scoringSystem.description(rs.points))) ", terminator: "")
+                    print("(\(scoringSystem.describe(rs.points))) ", terminator: "")
                 }
                 else {
-                    print("\(scoringSystem.description(rs.points)) ", terminator: "")
+                    print("\(scoringSystem.describe(rs.points)) ", terminator: "")
                 }
             }
             print("")
@@ -159,7 +159,7 @@ public struct SeriesScoring {
             if scoringSystem.betterScore($0.totalPoints, $1.totalPoints) {
                 return true
             }
-            else if scoringSystem.sameScore($0.totalPoints, $1.totalPoints) {
+            else if scoringSystem.betterScore($1.totalPoints, $0.totalPoints) {
                 return false
             }
             else {
@@ -186,7 +186,8 @@ public struct SeriesScoring {
     
     public func toHTML<RaceType: Race>(races: [RaceType],
                                        scores: [SeriesScore<RaceType.CompetitorType>],
-                                       columns: [TableColumn<RaceType>]) -> String {
+                                       columns: [TableColumn<RaceType>],
+                                       debug: Bool = false) -> String {
         var result = "<table class='race-scores'><thead><tr>"
         for column in columns {
             switch column {
@@ -215,14 +216,19 @@ public struct SeriesScoring {
                     result += "<td class='competitor'>" + score.competitor.name.addingUnicodeEntities() + "</td>"
                 case .race:
                     for raceScore in score.raceScores {
-                        result += "<td class='points"
+                        result += "<td class='points'>"
                         if raceScore.excluded {
-                            result += " excluded"
+                            result += "<span class='excluded'>"
                         }
-                        result += "'>" + scoringSystem.description(raceScore.points).addingUnicodeEntities() + "</td>"
+                        result += scoringSystem.describe(score: raceScore, debug: debug).addingUnicodeEntities()
+                        if raceScore.excluded {
+                            result += "</span>"
+                        }
+                        result += "</td>"
                     }
                 case .score:
-                    result += "<td class='score'>" + scoringSystem.description(score.totalPoints).addingUnicodeEntities() + "</td>"
+                    result += "<td class='score'>" + scoringSystem.describe(score.totalPoints, debug: debug).addingUnicodeEntities()
+                    result += "</td>"
                 case .place:
                     result += "<td class='place'>"
                     if let rank = score.rank {
@@ -241,23 +247,42 @@ public struct SeriesScoring {
     }
     
     let sampleCSS = """
-        body {
-          font-family: sans-serif;
-        }
-        .points, .score, .place {
-          font-variant: tabular-nums;
-          text-align: center;
-        }
-        .not-qualified td {
-          text-color: gray;
-        }
-        .excluded {
-          background-image: linear-gradient(to bottom,
-            transparent calc(50% - 1px),
-            red,
-            transparent calc(50% + 1px)
-          )
-        }
+    body {
+      font-family: sans-serif;
+    }
+    .race-scores {
+      border-collapse: collapse;
+      font-variant: tabular-nums;
+    }
+    .race-scores th {
+      border-bottom: 2px solid #CCC;
+    }
+    .race-scores th, .race-scores td {
+      padding-left: 1em;
+      padding-right: 0;
+    }
+    .race-scores th:first-child, .race-scores td:first-child {
+      padding-left: 0;
+    }
+    .competitor {
+      text-align: left;
+    }
+    .place {
+      text-align: right;
+    }
+    .points, .score, .place {
+      text-align: center;
+    }
+    .not-qualified td {
+      color: gray;
+    }
+    .excluded {
+      background-image: linear-gradient(to bottom right,
+        transparent calc(50% - 1px),
+        red,
+        transparent calc(50% + 1px)
+      )
+    }
     """
 }
 

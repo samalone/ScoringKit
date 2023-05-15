@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "D9DA3E64-A357-483E-8F52-54737BA2AD46",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "ScoringKitTests",
+        "name" : "ScoringKitTests"
+      }
+    }
+  ],
+  "version" : 1
+}
