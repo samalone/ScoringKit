@@ -278,7 +278,7 @@ public struct SeriesScoring {
     .place {
       text-align: right;
     }
-    .points, .score, .place {
+    .points, .score, .place, .races-sailed, .best-throwout {
       text-align: center;
     }
     .not-qualified td {
