@@ -15,13 +15,13 @@ public struct SeriesScoring: Codable {
     // of boats that competed but did not finish
     // for regattas and long series.
     // This flag controls which version is used.
-    let isLongSeries: Bool
+    let longSeries: Bool
     let exclude: RaceCount
     let qualify: RaceCount
     
     public init(scoringSystem: ScoringSystem, longSeries: Bool, exclude: RaceCount, qualify: RaceCount) {
         self.scoringSystem = scoringSystem
-        self.isLongSeries = longSeries
+        self.longSeries = longSeries
         self.exclude = exclude
         self.qualify = qualify
     }
@@ -42,7 +42,7 @@ public struct SeriesScoring: Codable {
             (race) in
             guard let result = race.results[competitor] else { return RaceScore() }
             return RaceScore(result: result, points: scoringSystem.computeScore(result: result,
-                                                                                isLongSeries: isLongSeries,
+                                                                                isLongSeries: longSeries,
                                                                                 competitorsInStartingArea: race.competitorsInStartingArea,
                                                                                 competitorsInSeries: competitorsInSeries))
         }
@@ -81,6 +81,44 @@ public struct SeriesScoring: Codable {
         return competitorRaceScores
     }
     
+    func tagResultStatus<CompetitorType: Competitor>(scores: [CompetitorType: [RaceScore]]) {
+        guard scores.count > 0 else { return }
+        guard let raceCount = scores.randomElement()?.value.count, raceCount > 0 else { return }
+        for raceIndex in 0 ..< raceCount {
+            let raceScores = scores.values.compactMap { raceScores -> RaceScore? in
+                    let score = raceScores[raceIndex]
+                    guard case .finished = score.result else { return nil }
+                    return score
+                }
+                .sorted { a, b in
+                    guard case let .finished(aPosition) = a.result else { return false }
+                    guard case let .finished(bPosition) = b.result else { return true }
+                    return aPosition < bPosition
+                }
+            var previousPosition = 0
+            var previousScore: RaceScore? = nil
+            var currentPosition = 1
+            for raceScore in raceScores {
+                guard case let .finished(position) = raceScore.result else { continue }
+                if position > currentPosition {
+                    raceScore.status = .error
+                }
+                else if position == previousPosition {
+                    if previousScore?.status == .error {
+                        raceScore.status = .error
+                    }
+                    else {
+                        raceScore.status = .tied
+                        previousScore?.status = .tied
+                    }
+                }
+                previousScore = raceScore
+                previousPosition = position
+                currentPosition += 1
+            }
+        }
+    }
+    
     public func calculateScores<RaceType: Race>(_ races: [RaceType]) -> [SeriesScore<RaceType.CompetitorType>] {
         print("\(races.count) races")
         let racesToQualify = qualify.calculate(races.count)
@@ -89,6 +127,10 @@ public struct SeriesScoring: Codable {
         print("\(exclusions) throw outs")
         let competitors = collectCompetitors(races)
         let competitorRaceScores = collectRaceScores(competitors, races: races, exclusions: exclusions)
+        
+        // Go through the results of each race, marking any ties or obvious scoring errors.
+        tagResultStatus(scores: competitorRaceScores)
+        
         var scores: [SeriesScore<RaceType.CompetitorType>] = []
         for competitor in competitors {
             let totalPoints = competitorRaceScores[competitor]!.map({$0.excluded ? Points() : $0.points}).reduce(Points(), +)
@@ -218,7 +260,16 @@ public struct SeriesScoring: Codable {
                     result += "<td class='competitor'>" + score.competitor.name.addingUnicodeEntities() + "</td>"
                 case .race:
                     for raceScore in score.raceScores {
-                        result += "<td class='points'>"
+                        result += "<td class='points"
+                        switch raceScore.status {
+                        case .tied:
+                            result += " tied"
+                        case .error:
+                            result += " error"
+                        case .ok:
+                            break
+                        }
+                        result += "'>"
                         if raceScore.excluded {
                             result += "<span class='excluded'>"
                         }
@@ -255,42 +306,51 @@ public struct SeriesScoring: Codable {
     }
     
     static let sampleCSS = """
-    body {
-      font-family: sans-serif;
-    }
-    .race-scores {
-      border-collapse: collapse;
-      font-variant: tabular-nums;
-    }
-    .race-scores th {
-      border-bottom: 2px solid #CCC;
-    }
-    .race-scores th, .race-scores td {
-      padding-left: 1em;
-      padding-right: 0;
-    }
-    .race-scores th:first-child, .race-scores td:first-child {
-      padding-left: 0;
-    }
-    .competitor {
-      text-align: left;
-    }
-    .place {
-      text-align: right;
-    }
-    .points, .score, .place, .races-sailed, .best-throwout {
-      text-align: center;
-    }
-    .not-qualified td {
-      color: gray;
-    }
-    .excluded {
-      background-image: linear-gradient(to bottom right,
-        transparent calc(50% - 1px),
-        red,
-        transparent calc(50% + 1px)
-      )
-    }
+        body {
+          font-family: sans-serif;
+        }
+        .race-scores {
+          border-collapse: collapse;
+          font-variant: tabular-nums;
+        }
+        .race-scores th {
+          border-bottom: 2px solid #CCC;
+        }
+        .race-scores th, .race-scores td {
+          padding-left: 0.5em;
+          padding-right: 0.5em;
+        }
+        .race-scores th:first-child, .race-scores td:first-child {
+          padding-left: 0;
+        }
+        .race-scores th:last-child, .race-scores td:last-child {
+          padding-right: 0;
+        }
+        .competitor {
+          text-align: left;
+        }
+        .place {
+          text-align: right;
+        }
+        .points, .score, .place, .races-sailed, .best-throwout {
+          text-align: center;
+        }
+        .not-qualified td {
+          color: gray;
+        }
+        .excluded {
+          background-image: linear-gradient(to bottom right,
+            transparent calc(50% - 1px),
+            red,
+            transparent calc(50% + 1px)
+          )
+        }
+        .tied {
+          background-color: #CDF;
+        }
+        .error {
+          background-color: #FAA;
+        }
     """
 }
 

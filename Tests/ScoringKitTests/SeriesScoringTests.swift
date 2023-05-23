@@ -115,4 +115,16 @@ final class SeriesScoringTests: XCTestCase {
         let foo = String(data: try JSONEncoder().encode(frozenFewSeries), encoding: .utf8)!
         print(foo)
     }
+    
+    func testTiesAndErrors() throws {
+        let races = [
+            MyRace(results: [bill: 1, jim: 1, chrisCrane: 3, jeff: 4]),
+            MyRace(results: [bill: 1, jim: 3, chrisCrane: 3, jeff: 4])
+        ]
+        
+        let scoring = SeriesScoring(scoringSystem: .lowPoint, longSeries: false, exclude: .none, qualify: .all)
+        let scores = scoring.calculateScores(races)
+        let html = scoring.toHTML(races: races, scores: scores, columns: regattaColumns(), debug: true)
+        print(html)
+    }
 }

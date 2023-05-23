@@ -10,6 +10,7 @@ import Foundation
 
 public enum RaceCount: Codable {
     case none
+    case all
     case upTo(n: Int)
     case roundUp(percent: Int)
     case roundDown(percent: Int)
@@ -18,6 +19,8 @@ public enum RaceCount: Codable {
         switch self {
         case .none:
             return 0
+        case .all:
+            return numberOfRaces
         case .upTo(let n):
             return min(n, numberOfRaces - 1)
         case .roundUp(let percent):

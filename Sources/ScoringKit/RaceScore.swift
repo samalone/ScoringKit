@@ -22,6 +22,7 @@ public class RaceScore {
     // These fields are computed as part of the scoring process,
     // and may change during different phases of scoring.
     public var excluded: Bool = false
+    public var status: ResultStatus = .ok
     
     init() {
         self.result = .dnc
