@@ -9,21 +9,21 @@
 import Foundation
 import HTMLString
 
-public struct SeriesScoring {
-    let scoringSystem: any ScoringSystem
+public struct SeriesScoring: Codable {
+    let scoringSystem: ScoringSystem
     // The RRS section A9 specifies slighly different handling
     // of boats that competed but did not finish
     // for regattas and long series.
     // This flag controls which version is used.
     let isLongSeries: Bool
-    let excludeLimit: RaceLimit
-    let qualifyLimit: RaceLimit
+    let exclude: RaceCount
+    let qualify: RaceCount
     
-    public init(scoringSystem: any ScoringSystem, longSeries: Bool, exclude: RaceLimit, qualify: RaceLimit) {
+    public init(scoringSystem: ScoringSystem, longSeries: Bool, exclude: RaceCount, qualify: RaceCount) {
         self.scoringSystem = scoringSystem
         self.isLongSeries = longSeries
-        self.excludeLimit = exclude
-        self.qualifyLimit = qualify
+        self.exclude = exclude
+        self.qualify = qualify
     }
     
     func collectCompetitors<RaceType: Race>(_ races: [RaceType]) -> Set<RaceType.CompetitorType> {
@@ -83,9 +83,9 @@ public struct SeriesScoring {
     
     public func calculateScores<RaceType: Race>(_ races: [RaceType]) -> [SeriesScore<RaceType.CompetitorType>] {
         print("\(races.count) races")
-        let racesToQualify = qualifyLimit.calculate(races.count)
+        let racesToQualify = qualify.calculate(races.count)
         print("\(racesToQualify) to qualify")
-        let exclusions = excludeLimit.calculate(races.count)
+        let exclusions = exclude.calculate(races.count)
         print("\(exclusions) throw outs")
         let competitors = collectCompetitors(races)
         let competitorRaceScores = collectRaceScores(competitors, races: races, exclusions: exclusions)
@@ -254,7 +254,7 @@ public struct SeriesScoring {
         return result
     }
     
-    let sampleCSS = """
+    static let sampleCSS = """
     body {
       font-family: sans-serif;
     }
@@ -306,5 +306,5 @@ public enum TableColumn<RaceType: Race> {
 }
 
 // The default scoring system in Appendix A allows 1 exclusion and no minimum to qualify.
-let defaultRegattaScoringSystem = SeriesScoring(scoringSystem: LowPointSystem(), longSeries: false, exclude: .upTo(1), qualify: .none)
-let defaultHighPointSystem = SeriesScoring(scoringSystem: HighPointSystem(), longSeries: true, exclude: .upTo(1), qualify: .abovePercent(75))
+let defaultRegattaScoringSystem = SeriesScoring(scoringSystem: .lowPoint, longSeries: false, exclude: .upTo(n: 1), qualify: .none)
+let defaultHighPointSystem = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: true, exclude: .upTo(n: 1), qualify: .roundUp(percent: 75))

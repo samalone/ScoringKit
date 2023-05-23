@@ -13,9 +13,9 @@ struct MyRace: Race {
     }
 }
 
-let frozenFewRegatta = SeriesScoring(scoringSystem: LowPointSystem(), longSeries: false, exclude: .none, qualify: .none)
-let frozenFewSeries = SeriesScoring(scoringSystem: LowPointSystem(), longSeries: true, exclude: .abovePercent(60), qualify: .abovePercent(60))
-let highPointSeries = SeriesScoring(scoringSystem: HighPointSystem(), longSeries: false, exclude: .none, qualify: .none)
+let frozenFewRegatta = SeriesScoring(scoringSystem: .lowPoint, longSeries: false, exclude: .none, qualify: .none)
+let frozenFewSeries = SeriesScoring(scoringSystem: .lowPoint, longSeries: true, exclude: .roundDown(percent: 40), qualify: .roundUp(percent: 60))
+let highPointSeries = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: false, exclude: .none, qualify: .none)
 
 let wayne = Skipper(name: "Wayne")
 let jeff = Skipper(name: "Jeff")
@@ -105,9 +105,14 @@ final class SeriesScoringTests: XCTestCase {
             MyRace(results: [bill: 1, chrisLee: 3, jim: 4, zack: 5, jeff: 6, chrisCrane: 2, wayne: .dnf, rich: .dnc, mitch: .dnc]),
         ]
         
-        let scoring = SeriesScoring(scoringSystem: HighPointSystem(), longSeries: true, exclude: .upTo(1), qualify: .abovePercent(75))
+        let scoring = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: true, exclude: .upTo(n: 1), qualify: .roundUp(percent: 75))
         let scores = scoring.calculateScores(races)
-        let html = scoring.toHTML(races: races, scores: scores, columns: regattaColumns(), debug: false)
+        let html = scoring.toHTML(races: races, scores: scores, columns: regattaColumns(), debug: true)
         print(html)
+    }
+    
+    func testSeriesScoringCoding() throws {
+        let foo = String(data: try JSONEncoder().encode(frozenFewSeries), encoding: .utf8)!
+        print(foo)
     }
 }
