@@ -1,8 +1,8 @@
 import Foundation
 
-public enum RaceResult: Equatable {
+public enum RaceResult: Codable, Equatable {
     case racing         // Still racing
-    case finished(Int)  // Completed the race normally
+    case finished(position: Int)  // Completed the race normally
     
     case dnc    // Did not start; did not come to the starting area
     case dns    // Did not start (other than DNC and OCS)
@@ -15,6 +15,30 @@ public enum RaceResult: Equatable {
     case dne    // Disqualification not excludable under rule 88.3(b)
     case rdg    // Redress given
     case zfp    // 20% penalty under rule 30.2
+    
+    public init?(_ value: String) {
+        switch value.uppercased() {
+        case "": self = .racing
+        case "DNC": self = .dnc
+        case "DNS": self = .dns
+        case "OCS": self = .ocs
+        case "BFD": self = .bfd
+        case "SCP": self = .scp
+        case "DNF": self = .dnf
+        case "RAF": self = .raf
+        case "DSQ": self = .dsq
+        case "DNE": self = .dne
+        case "RDG": self = .rdg
+        case "ZFP": self = .zfp
+        default:
+            if let position = Int(value) {
+                self = .finished(position: position)
+            }
+            else {
+                return nil
+            }
+        }
+    }
     
     public static let allSpecial: [RaceResult] = [
         .dnc, .dnf, .dns,
@@ -66,32 +90,12 @@ extension RaceResult: CustomStringConvertible {
 
 extension RaceResult: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
-        switch value {
-        case "": self = .racing
-        case "DNC": self = .dnc
-        case "DNS": self = .dns
-        case "OCS": self = .ocs
-        case "BFD": self = .bfd
-        case "SCP": self = .scp
-        case "DNF": self = .dnf
-        case "RAF": self = .raf
-        case "DSQ": self = .dsq
-        case "DNE": self = .dne
-        case "RDG": self = .rdg
-        case "ZFP": self = .zfp
-        default:
-            if let position = Int(value) {
-                self = .finished(position)
-            }
-            else {
-                self = .racing
-            }
-        }
+        self = RaceResult(value) ?? .racing
     }
 }
 
 extension RaceResult: ExpressibleByIntegerLiteral {
     public init(integerLiteral value: Int) {
-        self = .finished(value)
+        self = .finished(position: value)
     }
 }
