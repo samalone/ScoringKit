@@ -120,11 +120,8 @@ public struct SeriesScoring: Codable {
     }
     
     public func calculateScores<RaceType: Race>(_ races: [RaceType]) -> [SeriesScore<RaceType.CompetitorType>] {
-        print("\(races.count) races")
         let racesToQualify = qualify.calculate(races.count)
-        print("\(racesToQualify) to qualify")
         let exclusions = exclude.calculate(races.count)
-        print("\(exclusions) throw outs")
         let competitors = collectCompetitors(races)
         let competitorRaceScores = collectRaceScores(competitors, races: races, exclusions: exclusions)
         
@@ -144,19 +141,6 @@ public struct SeriesScoring: Codable {
                 scores[i].rank = i + 1
             }
         }
-        for score in scores {
-            let q = score.qualified ? "Q" : "NQ"
-            print("\(score.competitor.name) \(q) \(scoringSystem.describe(score.totalPoints)): ")
-            for rs in score.raceScores {
-                if rs.excluded {
-                    print("(\(scoringSystem.describe(rs.points))) ", terminator: "")
-                }
-                else {
-                    print("\(scoringSystem.describe(rs.points)) ", terminator: "")
-                }
-            }
-            print("")
-        }
         return scores
     }
 
@@ -169,7 +153,7 @@ public struct SeriesScoring: Codable {
             if scoringSystem.betterScore(scores0[i].points, scores1[i].points) {
                 return .orderedAscending
             }
-            else if scoringSystem.betterScore(scores0[i].points, scores1[i].points) {
+            else if scoringSystem.betterScore(scores1[i].points, scores0[i].points) {
                 return .orderedDescending
             }
         }

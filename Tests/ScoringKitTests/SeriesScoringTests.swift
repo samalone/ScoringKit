@@ -27,6 +27,9 @@ let george = Skipper(name: "George S.")
 let rich = Skipper(name: "Rich G.")
 let zack = Skipper(name: "Zack")
 let mitch = Skipper(name: "Mitch")
+let sam = Skipper(name: "Sam")
+let daveLeblanc = Skipper(name: "Dave LeBlanc")
+let bob = Skipper(name: "Bob Shaw")
 
 func regattaColumns() -> [TableColumn<MyRace>] {
     var raceNumber = 0
@@ -37,6 +40,12 @@ func regattaColumns() -> [TableColumn<MyRace>] {
 }
 
 let seriesColumns: [TableColumn<MyRace>] = [.place, .competitor("Skipper"), .racesSailed, .bestThrowout, .score]
+
+extension Collection {
+    subscript(safe index: Index) -> Element? {
+        return indices.contains(index) ? self[index] : nil
+    }
+}
 
 final class SeriesScoringTests: XCTestCase {
     func testExample() throws {
@@ -126,5 +135,40 @@ final class SeriesScoringTests: XCTestCase {
         let scores = scoring.calculateScores(races)
         let html = scoring.toHTML(races: races, scores: scores, columns: regattaColumns(), debug: true)
         print(html)
+    }
+    
+    func invert(skipperResults: [Skipper: [RaceResult]]) -> [MyRace] {
+        guard let raceCount = skipperResults.values.map({$0.count}).max() else {
+            return []
+        }
+        return (0..<raceCount).map { raceIndex in
+            var results: [Skipper: RaceResult] = [:]
+            for skipperResult in skipperResults {
+                results[skipperResult.key] = skipperResult.value[safe: raceIndex] ?? .dnc
+            }
+            return MyRace(results: results)
+        }
+    }
+    
+    func testTie() throws {
+        let skipperResults: [Skipper: [RaceResult]] = [
+            chrisCrane: [2, 1, 1, 4, 4, 1],
+            sam: [1, 4, 5, 3, 3, 2],
+            chrisLee: [8, 8, 3, 2, 1, 3],
+            jeff: [3, 3, 2, 5, 6, 6],
+            george: [4, 2, 4, 6, 5, 8],
+            daveLeblanc: [6, 5, 6, 7, 2, 5],
+            rich: [5, 7, 10, 1, 8, 7],
+            zack: [7, 6, 7, 8, 7, 4],
+            bob: [9, 10, 8, 9, 9, 9],
+            mitch: [10, 9, 9, 10, 10, "DNF"],
+         ]
+        let races = invert(skipperResults: skipperResults)
+        let scoring = frozenFewRegatta
+        for _ in 0 ..< 100 {
+            let scores = scoring.calculateScores(races)
+            XCTAssertEqual(scores[2].competitor, chrisLee)
+            XCTAssertEqual(scores[3].competitor, jeff)
+        }
     }
 }
