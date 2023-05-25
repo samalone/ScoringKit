@@ -10,14 +10,14 @@ import Foundation
 import HTMLString
 
 public struct SeriesScoring: Codable {
-    let scoringSystem: ScoringSystem
+    public let scoringSystem: ScoringSystem
     // The RRS section A9 specifies slighly different handling
     // of boats that competed but did not finish
     // for regattas and long series.
     // This flag controls which version is used.
-    let longSeries: Bool
-    let exclude: RaceCount
-    let qualify: RaceCount
+    public let longSeries: Bool
+    public let exclude: RaceCount
+    public let qualify: RaceCount
     
     public init(scoringSystem: ScoringSystem, longSeries: Bool, exclude: RaceCount, qualify: RaceCount) {
         self.scoringSystem = scoringSystem
@@ -241,7 +241,7 @@ public struct SeriesScoring: Codable {
             for column in columns {
                 switch column {
                 case .competitor:
-                    result += "<td class='competitor'>" + score.competitor.name.addingUnicodeEntities() + "</td>"
+                    result += "<td class='competitor'>" + score.competitor.html + "</td>"
                 case .race:
                     for raceScore in score.raceScores {
                         result += "<td class='points"

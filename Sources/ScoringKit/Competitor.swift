@@ -10,7 +10,7 @@ import Foundation
 /// A Competitor is simply an identifier for someone competing in a race.
 /// It could be a skipper or a vessel.
 /// It needs to be Hashable so it can be a Dictionary key.
-/// The name is used to identify the competitor when exporting to HTML.
+/// The html is used to identify the competitor when exporting to HTML.
 public protocol Competitor: Equatable, Hashable {
-    var name: String { get }
+    var html: String { get }
 }

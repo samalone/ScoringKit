@@ -90,6 +90,10 @@ public enum ScoringSystem: String, Codable {
         }
     }
     
+    public var canDebug: Bool {
+        return self != .lowPoint
+    }
+    
     func describe(_ points: Points, debug: Bool = false) -> String {
         switch self {
         case .lowPoint:
