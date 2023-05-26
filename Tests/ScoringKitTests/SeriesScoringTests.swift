@@ -127,4 +127,23 @@ final class SeriesScoringTests: XCTestCase {
         let html = scoring.toHTML(races: races, scores: scores, columns: regattaColumns(), debug: true)
         print(html)
     }
+    
+    func testRaceCount() throws {
+        let all = RaceCount.all
+        for numberOfRaces in 1 ... 20 {
+            XCTAssertEqual(all.calculate(numberOfRaces), numberOfRaces)
+        }
+        
+        let none = RaceCount.none
+        for numberOfRaces in 1 ... 20 {
+            XCTAssertEqual(none.calculate(numberOfRaces), 0)
+        }
+        
+        let percent60up = RaceCount.roundUp(percent: 60)
+        let results = [0, 1, 2, 2, 3, 3, 4, 5, 5, 6, 6]
+        for (index, numberOfRaces) in results.enumerated() {
+            XCTAssertEqual(percent60up.calculate(index), numberOfRaces)
+        }
+        
+    }
 }
