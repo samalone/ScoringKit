@@ -9,6 +9,7 @@ import Foundation
 
 public enum ScoringSystem: String, Codable {
     case lowPoint
+    case bonusPoint
     case lowPointAveraged
     case highPointPercentage
     
@@ -16,10 +17,33 @@ public enum ScoringSystem: String, Codable {
         switch self {
         case .lowPoint:
             return "Low point"
+        case .bonusPoint:
+            return "Bonus point"
         case .lowPointAveraged:
             return "Low point averaged"
         case .highPointPercentage:
             return "High point percentage"
+        }
+    }
+    
+    private func bonusPoints(position: Int) -> Points {
+        switch position {
+        case 1:
+            return Points(0)
+        case 2:
+            return Points(30)
+        case 3:
+            return Points(57)
+        case 4:
+            return Points(80)
+        case 5:
+            return Points(100)
+        case 6:
+            return Points(117)
+        case 7:
+            return Points(130)
+        default:
+            return Points(130 + (10 * (position - 7)))
         }
     }
     
@@ -33,12 +57,20 @@ public enum ScoringSystem: String, Codable {
             case .finished(let position):
                 return Points(position)
             case .dnc:
-                return Points( competitorsInSeries + 1)
+                return Points(competitorsInSeries + 1)
             default:
                 return Points(isLongSeries ? (competitorsInStartingArea + 1) : (competitorsInSeries + 1))
             }
+        case .bonusPoint:
+            switch result {
+            case .finished(let position):
+                return bonusPoints(position: position)
+            case .dnc:
+                return bonusPoints(position: competitorsInSeries + 1)
+            default:
+                return bonusPoints(position: isLongSeries ? (competitorsInStartingArea + 1) : (competitorsInSeries + 1))
+            }
         case .lowPointAveraged:
-            
             switch result {
             case .finished(let position):
                 return Points(position)
@@ -70,24 +102,74 @@ public enum ScoringSystem: String, Codable {
     
     func betterScore(_ lhs: Points, _ rhs: Points) -> Bool {
         switch self {
-        case .lowPoint:
+        case .lowPoint, .bonusPoint:
             return lhs.numerator < rhs.numerator
         case .lowPointAveraged:
-            return (lhs.numerator * rhs.denominator) < (rhs.numerator * lhs.denominator)
+            switch (lhs.denominator, rhs.denominator) {
+            case (0, 0):
+                return false
+            case (0, _):
+                return false
+            case (_, 0):
+                return true
+            default:
+                return (lhs.numerator * rhs.denominator) < (rhs.numerator * lhs.denominator)
+            }
         case .highPointPercentage:
-            return (lhs.numerator * rhs.denominator) > (rhs.numerator * lhs.denominator)
+            switch (lhs.denominator, rhs.denominator) {
+            case (0, 0):
+                return false
+            case (0, _):
+                return false
+            case (_, 0):
+                return true
+            default:
+                return (lhs.numerator * rhs.denominator) > (rhs.numerator * lhs.denominator)
+            }
         }
     }
     
     func sameScore(_ lhs: Points, _ rhs: Points) -> Bool {
         switch self {
-        case .lowPoint:
+        case .lowPoint, .bonusPoint:
             return lhs.numerator == rhs.numerator
         case .lowPointAveraged:
-            return (lhs.numerator * rhs.denominator) == (rhs.numerator * lhs.denominator)
+            switch (lhs.denominator, rhs.denominator) {
+            case (0, 0):
+                return true
+            case (0, _):
+                return false
+            case (_, 0):
+                return false
+            default:
+                return (lhs.numerator * rhs.denominator) == (rhs.numerator * lhs.denominator)
+            }
         case .highPointPercentage:
-            return (lhs.numerator * rhs.denominator) == (rhs.numerator * lhs.denominator)
+            switch (lhs.denominator, rhs.denominator) {
+            case (0, 0):
+                return true
+            case (0, _):
+                return false
+            case (_, 0):
+                return false
+            default:
+                return (lhs.numerator * rhs.denominator) == (rhs.numerator * lhs.denominator)
+            }
         }
+    }
+    
+    func canExclude(result: RaceResult) -> Bool {
+        if result == .dnc {
+            switch self {
+            case .lowPoint, .bonusPoint:
+                return true
+            case .lowPointAveraged:
+                return false
+            case .highPointPercentage:
+                return false
+            }
+        }
+        return result.isExcludable
     }
     
     public var canDebug: Bool {
@@ -98,6 +180,8 @@ public enum ScoringSystem: String, Codable {
         switch self {
         case .lowPoint:
             return points.numerator.description
+        case .bonusPoint:
+            return String(format: "%.1f", Double(points.numerator) / 10.0)
         case .lowPointAveraged:
             guard points.denominator != 0 else { return "-" }
             return (debug ? "\(points.numerator)/\(points.denominator) " : "") + String(format: "%.2f", Double(points.numerator) / Double(points.denominator))
@@ -109,7 +193,7 @@ public enum ScoringSystem: String, Codable {
     
     func describe(score: RaceScore, debug: Bool = false) -> String {
         switch self {
-        case .lowPoint:
+        case .lowPoint, .bonusPoint:
             switch score.result {
             case .racing:
                 return ""

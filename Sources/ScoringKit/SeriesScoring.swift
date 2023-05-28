@@ -16,10 +16,10 @@ public struct SeriesScoring: Codable {
     // for regattas and long series.
     // This flag controls which version is used.
     public let longSeries: Bool
-    public let exclude: RaceCount
-    public let qualify: RaceCount
+    public let qualify: RacesToQualify
+    public let exclude: RacesToExclude
     
-    public init(scoringSystem: ScoringSystem, longSeries: Bool, exclude: RaceCount, qualify: RaceCount) {
+    public init(scoringSystem: ScoringSystem, longSeries: Bool, qualify: RacesToQualify, exclude: RacesToExclude) {
         self.scoringSystem = scoringSystem
         self.longSeries = longSeries
         self.exclude = exclude
@@ -40,7 +40,7 @@ public struct SeriesScoring: Codable {
         assert(exclusions < races.count)
         let places = races.map {
             (race) in
-            guard let result = race.results[competitor] else { return RaceScore() }
+            let result = race.results[competitor] ?? .dnc
             return RaceScore(result: result, points: scoringSystem.computeScore(result: result,
                                                                                 isLongSeries: longSeries,
                                                                                 competitorsInStartingArea: race.competitorsInStartingArea,
@@ -54,24 +54,25 @@ public struct SeriesScoring: Codable {
             // This code relies on RaceScore being a class so that changes to .excluded
             // affect the places array, not just the worstPlaces array.
             
-            let worstPlaces = places.sorted(by: worseScore)
-            for i in 0 ..< exclusions {
+            let worstPlaces = places.filter({scoringSystem.canExclude(result: $0.result)})
+                .sorted(by: {scoringSystem.betterScore($1.points, $0.points)})
+            for i in 0 ..< min(exclusions, worstPlaces.count) {
                 worstPlaces[i].excluded = true
             }
         }
         return places
     }
     
-    private func worseScore(a: RaceScore, b: RaceScore) -> Bool {
-        switch (a.result.isExcludable, b.result.isExcludable) {
-        case (true, false):
-            return true
-        case (false, true):
-            return false
-        case (false, false), (true, true):
-            return scoringSystem.betterScore(b.points, a.points)
-        }
-    }
+//    private func worseScore(a: RaceScore, b: RaceScore) -> Bool {
+//        switch (a.result.isExcludable, b.result.isExcludable) {
+//        case (true, false):
+//            return true
+//        case (false, true):
+//            return false
+//        case (false, false), (true, true):
+//            return scoringSystem.betterScore(b.points, a.points)
+//        }
+//    }
     
     func collectRaceScores<RaceType: Race>(_ competitors: Set<RaceType.CompetitorType>, races: [RaceType], exclusions: Int) -> [RaceType.CompetitorType: [RaceScore]] {
         var competitorRaceScores: [RaceType.CompetitorType: [RaceScore]] = [:]
@@ -120,8 +121,8 @@ public struct SeriesScoring: Codable {
     }
     
     public func calculateScores<RaceType: Race>(_ races: [RaceType]) -> [SeriesScore<RaceType.CompetitorType>] {
-        let racesToQualify = qualify.calculate(races.count)
-        let exclusions = exclude.calculate(races.count)
+        let racesToQualify = qualify.calculate(numberOfRaces: races.count)
+        let exclusions = exclude.calculate(numberOfRaces: races.count, neededToQualify: racesToQualify)
         let competitors = collectCompetitors(races)
         let competitorRaceScores = collectRaceScores(competitors, races: races, exclusions: exclusions)
         
@@ -149,13 +150,19 @@ public struct SeriesScoring: Codable {
         // A8.1: If there is a series-score tie between two or more boats, each boat’s race scores shall be listed in order of best to worst, and at the first point(s) where there is a difference the tie shall be broken in favour of the boat(s) with the best score(s). No excluded scores shall be used.
         let scores0 = scores0.filter({ !$0.excluded }).sorted(by: {scoringSystem.betterScore($0.points, $1.points)})
         let scores1 = scores1.filter({ !$0.excluded }).sorted(by: {scoringSystem.betterScore($0.points, $1.points)})
-        for i in scores0.indices {
+        for i in 0..<min(scores0.count, scores1.count) {
             if scoringSystem.betterScore(scores0[i].points, scores1[i].points) {
                 return .orderedAscending
             }
             else if scoringSystem.betterScore(scores1[i].points, scores0[i].points) {
                 return .orderedDescending
             }
+        }
+        if scores0.count > scores1.count {
+            return .orderedAscending
+        }
+        if scores1.count > scores0.count {
+            return .orderedDescending
         }
         return .orderedSame
     }
@@ -221,7 +228,7 @@ public struct SeriesScoring: Codable {
                 result += "<th class='competitor'>" + heading.addingUnicodeEntities() + "</th>"
             case .race(let raceNamer):
                 for race in races {
-                    result += "<th class='race'>" + raceNamer(race).addingUnicodeEntities() + "</th>"
+                    result += "<th class='race'>" + raceNamer(race) + "</th>"
                 }
             case .score:
                 result += "<th class='score'>Score</th>"
@@ -255,16 +262,20 @@ public struct SeriesScoring: Codable {
                         }
                         result += "'>"
                         if raceScore.excluded {
-                            result += "<span class='excluded'>"
+                            result += "<del>"
                         }
-                        result += scoringSystem.describe(score: raceScore, debug: debug).addingUnicodeEntities()
+                        result += "<span class='score'>" + scoringSystem.describe(score: raceScore, debug: debug).addingUnicodeEntities()
+                            + "</span>"
                         if raceScore.excluded {
-                            result += "</span>"
+                            result += "</del>"
                         }
                         result += "</td>"
                     }
                 case .score:
-                    result += "<td class='score'>" + scoringSystem.describe(score.totalPoints, debug: debug).addingUnicodeEntities()
+                    result += "<td class='score'>"
+                    if !((scoringSystem == .lowPoint) && !score.qualified) {
+                        result += scoringSystem.describe(score.totalPoints, debug: debug).addingUnicodeEntities()
+                    }
                     result += "</td>"
                 case .place:
                     result += "<td class='place'>"
@@ -276,8 +287,10 @@ public struct SeriesScoring: Codable {
                     result += "<td class='races-sailed'>\(score.racesSailed)</td>"
                 case .bestThrowout:
                     result += "<td class='best-throwout'>"
-                    if let bestThrowout = score.raceScores.filter({$0.excluded}).sorted(by: {scoringSystem.betterScore($0.points, $1.points)}).first {
-                        result += scoringSystem.describe(score: bestThrowout, debug: debug)
+                    if !((scoringSystem == .lowPoint) && !score.qualified) {
+                        if let bestThrowout = score.raceScores.filter({$0.excluded}).sorted(by: {scoringSystem.betterScore($0.points, $1.points)}).first {
+                            result += scoringSystem.describe(score: bestThrowout, debug: debug)
+                        }
                     }
                     result += "</td>"
                 }
@@ -350,5 +363,7 @@ public enum TableColumn<RaceType: Race> {
 }
 
 // The default scoring system in Appendix A allows 1 exclusion and no minimum to qualify.
-let defaultRegattaScoringSystem = SeriesScoring(scoringSystem: .lowPoint, longSeries: false, exclude: .upTo(n: 1), qualify: .none)
-let defaultHighPointSystem = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: true, exclude: .upTo(n: 1), qualify: .roundUp(percent: 75))
+let defaultRegattaScoringSystem = SeriesScoring(scoringSystem: .lowPoint, longSeries: false,
+                                                qualify: .none, exclude: .upTo(n: 1))
+let defaultHighPointSystem = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: true,
+                                           qualify: .roundUp(percent: 75), exclude: .upTo(n: 1))

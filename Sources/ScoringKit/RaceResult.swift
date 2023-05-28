@@ -13,6 +13,7 @@ public enum RaceResult: Codable, Equatable {
     case raf    // Retired after finishing
     case dsq    // Disqualification
     case dne    // Disqualification not excludable under rule 88.3(b)
+    case dgm    // Disqualification under rule 69.1(b)(2); not excludable
     case rdg    // Redress given
     case zfp    // 20% penalty under rule 30.2
     
@@ -28,6 +29,7 @@ public enum RaceResult: Codable, Equatable {
         case "RAF": self = .raf
         case "DSQ": self = .dsq
         case "DNE": self = .dne
+        case "DGM": self = .dgm
         case "RDG": self = .rdg
         case "ZFP": self = .zfp
         default:
@@ -51,7 +53,12 @@ public enum RaceResult: Codable, Equatable {
     ///
     /// **90.3 (b)** When a scoring system provides for excluding one or more race scores from a boat’s series score, the score for disqualification under rule 2; rule 30.3’s last sentence; rule 42 if rule P2.2 or P2.3 applies; or rule 69.2(c)(2) shall not be excluded. The next-worse score shall be excluded instead.
     var isExcludable: Bool {
-        return self != .dne
+        switch self {
+        case .dne, .bfd, .dgm:
+            return false
+        default:
+            return true
+        }
     }
 }
 
@@ -80,6 +87,8 @@ extension RaceResult: CustomStringConvertible {
             return "DSQ"
         case .dne:
             return "DNE"
+        case .dgm:
+            return "DGM"
         case .rdg:
             return "RDG"
         case .zfp:
