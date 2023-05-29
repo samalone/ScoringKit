@@ -6,8 +6,6 @@
 //  Copyright © 2015 Llamagraphics, Inc. All rights reserved.
 //
 
-import CoreData
-
 public struct SeriesScore<CompetitorType: Competitor> {
     public let competitor: CompetitorType
     public let racesSailed: Int
