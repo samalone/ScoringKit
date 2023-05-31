@@ -1,8 +1,15 @@
+//
+//  File.swift
+//  
+//
+//  Created by Stuart A. Malone on 5/31/23.
+//
+
 import Foundation
 
-public enum RaceResult<PositionType: FinishPosition>: Codable, Equatable {
+public enum PHRFResult: Codable, Equatable {
     case racing         // Still racing
-    case finished(position: PositionType)  // Completed the race normally
+    case finished(finishTime: Date)  // Completed the race normally
     
     case dnc    // Did not start; did not come to the starting area
     case dns    // Did not start (other than DNC and OCS)
@@ -17,7 +24,7 @@ public enum RaceResult<PositionType: FinishPosition>: Codable, Equatable {
     case rdg    // Redress given
     case zfp    // 20% penalty under rule 30.2
     
-    public init?(_ value: String) {
+    public init?(_ value: String, format: DateFormatter) {
         switch value.uppercased() {
         case "": self = .racing
         case "DNC": self = .dnc
@@ -33,8 +40,8 @@ public enum RaceResult<PositionType: FinishPosition>: Codable, Equatable {
         case "RDG": self = .rdg
         case "ZFP": self = .zfp
         default:
-            if let position = Int(value) {
-                self = .finished(position: position)
+            if let finishTime = format.date(from: value) {
+                self = .finished(finishTime: finishTime)
             }
             else {
                 return nil
@@ -42,13 +49,12 @@ public enum RaceResult<PositionType: FinishPosition>: Codable, Equatable {
         }
     }
     
-    public static var allSpecial: [RaceResult] {
-        return [.dnc, .dnf, .dns,
-                .ocs, .bfd, .scp,
-                .raf, .dsq, .dne,
-                .rdg, .zfp
-        ]
-    }
+    public static let allSpecial: [RaceResult] = [
+        .dnc, .dnf, .dns,
+        .ocs, .bfd, .scp,
+        .raf, .dsq, .dne,
+        .rdg, .zfp
+    ]
     
     /// Is the score excludable in a series that allows throw-outs?
     ///
@@ -63,7 +69,7 @@ public enum RaceResult<PositionType: FinishPosition>: Codable, Equatable {
     }
 }
 
-extension RaceResult: CustomStringConvertible {
+extension PHRFResult: CustomStringConvertible {
     public var description: String {
         switch self {
         case .racing:
@@ -98,14 +104,8 @@ extension RaceResult: CustomStringConvertible {
     }
 }
 
-extension RaceResult: ExpressibleByStringLiteral {
+extension PHRFResult: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
         self = RaceResult(value) ?? .racing
-    }
-}
-
-extension RaceResult: ExpressibleByIntegerLiteral {
-    public init(integerLiteral value: Int) {
-        self = .finished(position: value)
     }
 }
