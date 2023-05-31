@@ -39,10 +39,10 @@ public extension PHRFRace {
     }
 }
 
-struct PHRFRaceAdapter<PHRFRaceType: PHRFRace>: Race {
-    typealias CompetitorType = PHRFRaceType.CompetitorType
+public struct PHRFRaceAdapter<PHRFRaceType: PHRFRace>: Race {
+    public typealias CompetitorType = PHRFRaceType.CompetitorType
     
-    var results: [PHRFRaceType.CompetitorType : RaceResult<Int>] = [:]
+    public var results: [PHRFRaceType.CompetitorType : RaceResult<Int>] = [:]
     
     class CorrectedTime {
         let competitor: CompetitorType
@@ -55,7 +55,7 @@ struct PHRFRaceAdapter<PHRFRaceType: PHRFRace>: Race {
         }
     }
     
-    init(phrf: PHRFRaceType) {
+    public init(phrf: PHRFRaceType) {
         var correctedTimes: [CorrectedTime] = []
         for result in phrf.results {
             if let ct = phrf.correctedTime(of: result.key) {
