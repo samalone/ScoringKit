@@ -33,7 +33,7 @@ public enum RaceResult<PositionType: FinishPosition>: Codable, Equatable {
         case "RDG": self = .rdg
         case "ZFP": self = .zfp
         default:
-            if let position = Int(value) {
+            if let position = PositionType(value) {
                 self = .finished(position: position)
             }
             else {
@@ -104,7 +104,7 @@ extension RaceResult: ExpressibleByStringLiteral {
     }
 }
 
-extension RaceResult: ExpressibleByIntegerLiteral {
+extension RaceResult: ExpressibleByIntegerLiteral where PositionType == Int {
     public init(integerLiteral value: Int) {
         self = .finished(position: value)
     }

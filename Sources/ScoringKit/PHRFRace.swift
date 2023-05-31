@@ -7,7 +7,9 @@
 
 import Foundation
 
-protocol PHRFRace {
+public typealias PHRFResult = RaceResult<Date>
+
+public protocol PHRFRace {
     associatedtype CompetitorType: PHRFCompetitor
     
     var startTime: Date { get }

@@ -13,4 +13,9 @@ public struct PHRFScoring {
     public init(seriesScoring: SeriesScoring) {
         self.seriesScoring = seriesScoring
     }
+    
+    public func calculateScores<RaceType: PHRFRace>(_ races: [RaceType]) -> [SeriesScore<RaceType.CompetitorType>] {
+        return []
+    }
+
 }

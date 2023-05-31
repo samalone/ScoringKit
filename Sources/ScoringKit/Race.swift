@@ -10,7 +10,7 @@ import Foundation
 public protocol Race {
     associatedtype CompetitorType: Competitor
     
-    var results: [CompetitorType: RaceResult] { get }
+    var results: [CompetitorType: RaceResult<Int>] { get }
 }
 
 public extension Race {

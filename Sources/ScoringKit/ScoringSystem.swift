@@ -47,7 +47,7 @@ public enum ScoringSystem: String, Codable {
         }
     }
     
-    func computeScore(result: RaceResult,
+    func computeScore(result: RaceResult<Int>,
                       isLongSeries: Bool,
                       competitorsInStartingArea: Int,
                       competitorsInSeries: Int) -> Points {
@@ -158,7 +158,7 @@ public enum ScoringSystem: String, Codable {
         }
     }
     
-    func canExclude(result: RaceResult) -> Bool {
+    func canExclude(result: RaceResult<Int>) -> Bool {
         if result == .dnc {
             switch self {
             case .lowPoint, .bonusPoint:

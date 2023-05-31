@@ -16,7 +16,7 @@ import Foundation
 public class RaceScore {
     // These two fields are copied from the Results for a particular competitor,
     // and do not change during the scoring process.
-    public let result: RaceResult
+    public let result: RaceResult<Int>
     public let points: Points
 
     // These fields are computed as part of the scoring process,
@@ -29,7 +29,7 @@ public class RaceScore {
         self.points = Points()
     }
     
-    init(result: RaceResult, points: Points) {
+    init(result: RaceResult<Int>, points: Points) {
         self.result = result
         self.points = points
     }
