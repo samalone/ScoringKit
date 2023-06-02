@@ -9,6 +9,20 @@ import Foundation
 
 public typealias PHRFResult = RaceResult<Date>
 
+public extension PHRFResult {
+    init?(_ value: String, format: DateFormatter) {
+        if let finishTime = format.date(from: value) {
+            self = .finished(position: finishTime)
+        }
+        else if let result = PHRFResult(value) {
+            self = result
+        }
+        else {
+            return nil
+        }
+    }
+}
+
 public protocol PHRFRace {
     associatedtype CompetitorType: PHRFCompetitor
     
@@ -36,6 +50,10 @@ public extension PHRFRace {
     func correctedTime(of competitor: CompetitorType) -> TimeInterval? {
         guard let elapsedTime = elapsedTime(of: competitor) else { return nil }
         return elapsedTime * Double(averageRating + conditionsFactor) / Double(competitor.rating + conditionsFactor)
+    }
+    
+    func timeCorrectionFactor(of competitor: CompetitorType) -> Double {
+        return Double(averageRating + conditionsFactor) / Double(competitor.rating + conditionsFactor)
     }
 }
 
