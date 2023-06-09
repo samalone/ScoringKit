@@ -176,7 +176,7 @@ public enum ScoringSystem: String, Codable {
         return self != .lowPoint
     }
     
-    func describe(_ points: Points, debug: Bool = false) -> String {
+    public func describe(_ points: Points, debug: Bool = false) -> String {
         switch self {
         case .lowPoint:
             return points.numerator.description
@@ -191,7 +191,7 @@ public enum ScoringSystem: String, Codable {
         }
     }
     
-    func describe(score: RaceScore, debug: Bool = false) -> String {
+    public func describe(score: RaceScore, debug: Bool = false) -> String {
         switch self {
         case .lowPoint, .bonusPoint:
             switch score.result {
