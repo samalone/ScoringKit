@@ -3,6 +3,10 @@ import XCTest
 
 struct Skipper: Competitor {
     var name: String
+    
+    var html: String {
+        name.addingUnicodeEntities()
+    }
 }
 
 struct MyRace: Race {
@@ -13,9 +17,9 @@ struct MyRace: Race {
     }
 }
 
-let frozenFewRegatta = SeriesScoring(scoringSystem: .lowPoint, longSeries: false, exclude: .none, qualify: .none)
-let frozenFewSeries = SeriesScoring(scoringSystem: .lowPoint, longSeries: true, exclude: .roundDown(percent: 40), qualify: .roundUp(percent: 60))
-let highPointSeries = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: false, exclude: .none, qualify: .none)
+let frozenFewRegatta = SeriesScoring(scoringSystem: .lowPoint, longSeries: false, qualify: .none, exclude: .none)
+let frozenFewSeries = SeriesScoring(scoringSystem: .lowPoint, longSeries: true, qualify: .roundUp(percent: 60), exclude: .roundDown(percent: 40))
+let highPointSeries = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: false, qualify: .none, exclude: .none)
 
 let wayne = Skipper(name: "Wayne")
 let jeff = Skipper(name: "Jeff")
@@ -114,7 +118,7 @@ final class SeriesScoringTests: XCTestCase {
             MyRace(results: [bill: 1, chrisLee: 3, jim: 4, zack: 5, jeff: 6, chrisCrane: 2, wayne: .dnf, rich: .dnc, mitch: .dnc]),
         ]
         
-        let scoring = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: true, exclude: .upTo(n: 1), qualify: .roundUp(percent: 75))
+        let scoring = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: true, qualify: .roundUp(percent: 75), exclude: .upTo(n: 1))
         let scores = scoring.calculateScores(races)
         let html = scoring.toHTML(races: races, scores: scores, columns: regattaColumns(), debug: true)
         print(html)
@@ -131,7 +135,7 @@ final class SeriesScoringTests: XCTestCase {
             MyRace(results: [bill: 1, jim: 3, chrisCrane: 3, jeff: 4])
         ]
         
-        let scoring = SeriesScoring(scoringSystem: .lowPoint, longSeries: false, exclude: .none, qualify: .all)
+        let scoring = SeriesScoring(scoringSystem: .lowPoint, longSeries: false, qualify: .all, exclude: .none)
         let scores = scoring.calculateScores(races)
         let html = scoring.toHTML(races: races, scores: scores, columns: regattaColumns(), debug: true)
         print(html)

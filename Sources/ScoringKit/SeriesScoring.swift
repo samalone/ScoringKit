@@ -36,50 +36,45 @@ public struct SeriesScoring: Codable {
         return competitors
     }
     
-    func collectRaceScores<RaceType: Race>(_ competitor: RaceType.CompetitorType, races: [RaceType], competitorsInSeries: Int, exclusions: Int) -> [RaceScore] {
-        assert(exclusions < races.count)
-        let places = races.map {
-            (race) in
-            let result = race.results[competitor] ?? .dnc
-            return RaceScore(result: result, points: scoringSystem.computeScore(result: result,
-                                                                                isLongSeries: longSeries,
-                                                                                competitorsInStartingArea: race.competitorsInStartingArea,
-                                                                                competitorsInSeries: competitorsInSeries))
+    func collectRaceScores<RaceType: Race>(races: [RaceType], competitorsInSeries: Int) -> [RaceType.CompetitorType: [RaceScore]] {
+        var competitorRaceScores: [RaceType.CompetitorType: [RaceScore]] = [:]
+        let numberOfRaces = races.count
+        for (raceIndex, race) in races.enumerated() {
+            let competitorsInStartingArea = race.competitorsInStartingArea
+            let dncPoints = scoringSystem.computeScore(result: .dnc,
+                                                       isLongSeries: longSeries,
+                                                       competitorsInStartingArea: competitorsInStartingArea,
+                                                       competitorsInSeries: competitorsInSeries)
+            for (competitor, result) in race.results {
+                var competitorResults = competitorRaceScores[competitor] ?? Array<RaceScore>(repeating: RaceScore(result: .dnc, points: dncPoints), count: numberOfRaces)
+                competitorResults[raceIndex] = RaceScore(result: result, points: scoringSystem.computeScore(result: result,
+                                                                                                            isLongSeries: longSeries,
+                                                                                                            competitorsInStartingArea: competitorsInStartingArea,
+                                                                                                            competitorsInSeries: competitorsInSeries))
+                competitorRaceScores[competitor] = competitorResults
+            }
         }
-        if exclusions > 0 {
-            // 90.3 (b) When a scoring system provides for excluding one or more race scores from a boat’s series score, the score for disqualification under rule 2; rule 30.3’s last sentence; rule 42 if rule P2.2 or P2.3 applies; or rule 69.2(c)(2) shall not be excluded. The next-worse score shall be excluded instead.
-            
-            // A2: Each boat’s series score shall be the total of her race scores excluding her worst score. (The sailing instructions may make a different arrangement by providing, for example, that no score will be excluded, that two or more scores will be excluded, or that a specified number of scores will be excluded if a specified number of races are completed. A race is completed if scored; see rule 90.3(a).) If a boat has two or more equal worst scores, the score(s) for the race(s) sailed earliest in the series shall be excluded. The boat with the lowest series score wins and others shall be ranked accordingly.
-            
-            // This code relies on RaceScore being a class so that changes to .excluded
-            // affect the places array, not just the worstPlaces array.
-            
+        return competitorRaceScores
+    }
+    
+    func excludeWorstScores<CompetitorType: Competitor>(competitorRaceScores: [CompetitorType: [RaceScore]], exclusions: Int) {
+        guard exclusions > 0 else { return }
+        
+        // 90.3 (b) When a scoring system provides for excluding one or more race scores from a boat’s series score, the score for disqualification under rule 2; rule 30.3’s last sentence; rule 42 if rule P2.2 or P2.3 applies; or rule 69.2(c)(2) shall not be excluded. The next-worse score shall be excluded instead.
+        
+        // A2: Each boat’s series score shall be the total of her race scores excluding her worst score. (The sailing instructions may make a different arrangement by providing, for example, that no score will be excluded, that two or more scores will be excluded, or that a specified number of scores will be excluded if a specified number of races are completed. A race is completed if scored; see rule 90.3(a).) If a boat has two or more equal worst scores, the score(s) for the race(s) sailed earliest in the series shall be excluded. The boat with the lowest series score wins and others shall be ranked accordingly.
+        
+        // This code relies on RaceScore being a class so that changes to .excluded
+        // affect the places array, not just the worstPlaces array.
+        
+        for places in competitorRaceScores.values {
             let worstPlaces = places.filter({scoringSystem.canExclude(result: $0.result)})
                 .sorted(by: {scoringSystem.betterScore($1.points, $0.points)})
             for i in 0 ..< min(exclusions, worstPlaces.count) {
                 worstPlaces[i].excluded = true
             }
+            
         }
-        return places
-    }
-    
-//    private func worseScore(a: RaceScore, b: RaceScore) -> Bool {
-//        switch (a.result.isExcludable, b.result.isExcludable) {
-//        case (true, false):
-//            return true
-//        case (false, true):
-//            return false
-//        case (false, false), (true, true):
-//            return scoringSystem.betterScore(b.points, a.points)
-//        }
-//    }
-    
-    func collectRaceScores<RaceType: Race>(_ competitors: Set<RaceType.CompetitorType>, races: [RaceType], exclusions: Int) -> [RaceType.CompetitorType: [RaceScore]] {
-        var competitorRaceScores: [RaceType.CompetitorType: [RaceScore]] = [:]
-        for competitor in competitors {
-            competitorRaceScores[competitor] = collectRaceScores(competitor, races: races, competitorsInSeries: competitors.count, exclusions: exclusions)
-        }
-        return competitorRaceScores
     }
     
     func tagResultStatus<CompetitorType: Competitor>(scores: [CompetitorType: [RaceScore]]) {
@@ -124,10 +119,12 @@ public struct SeriesScoring: Codable {
         let racesToQualify = qualify.calculate(numberOfRaces: races.count)
         let exclusions = exclude.calculate(numberOfRaces: races.count, neededToQualify: racesToQualify)
         let competitors = collectCompetitors(races)
-        let competitorRaceScores = collectRaceScores(competitors, races: races, exclusions: exclusions)
+        let competitorRaceScores = collectRaceScores(races: races, competitorsInSeries: competitors.count)
         
         // Go through the results of each race, marking any ties or obvious scoring errors.
         tagResultStatus(scores: competitorRaceScores)
+        
+        excludeWorstScores(competitorRaceScores: competitorRaceScores, exclusions: exclusions)
         
         var scores: [SeriesScore<RaceType.CompetitorType>] = []
         for competitor in competitors {
