@@ -37,13 +37,13 @@ let bob = Skipper(name: "Bob Shaw")
 
 func regattaColumns() -> [TableColumn<MyRace>] {
     var raceNumber = 0
-    return [ .place, .competitor("Skipper"), .race({ _ in
+    return [ .place, .competitor(header: "Skipper", html: {$0.html}), .race({ _ in
         raceNumber += 1
         return "\(raceNumber)"
     }), .racesSailed, .bestThrowout, .score]
 }
 
-let seriesColumns: [TableColumn<MyRace>] = [.place, .competitor("Skipper"), .racesSailed, .bestThrowout, .score]
+let seriesColumns: [TableColumn<MyRace>] = [.place, .competitor(header: "Skipper", html: {$0.html}), .racesSailed, .bestThrowout, .score]
 
 extension Collection {
     subscript(safe index: Index) -> Element? {

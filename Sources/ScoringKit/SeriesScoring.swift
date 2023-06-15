@@ -221,8 +221,8 @@ public struct SeriesScoring: Codable {
         var result = "<table class='race-scores'><thead><tr>"
         for column in columns {
             switch column {
-            case .competitor(let heading):
-                result += "<th class='competitor'>" + heading.addingUnicodeEntities() + "</th>"
+            case .competitor(let header, _):
+                result += "<th class='competitor'>" + header.addingUnicodeEntities() + "</th>"
             case .race(let raceNamer):
                 for race in races {
                     result += "<th class='race'>" + raceNamer(race) + "</th>"
@@ -244,8 +244,8 @@ public struct SeriesScoring: Codable {
             result += "<tr class='\(qualifiedClass)'>"
             for column in columns {
                 switch column {
-                case .competitor:
-                    result += "<td class='competitor'>" + score.competitor.html + "</td>"
+                case .competitor(_, let html):
+                    result += "<td class='competitor'>" + html(score.competitor) + "</td>"
                 case .race:
                     for raceScore in score.raceScores {
                         result += "<td class='points"
@@ -351,7 +351,7 @@ public struct SeriesScoring: Codable {
 public enum TableColumn<RaceType: Race> {
     public typealias RaceNamer = (RaceType) -> String
     
-    case competitor(String)
+    case competitor(header: String, html: (RaceType.CompetitorType) -> String)
     case race(RaceNamer)
     case score
     case place
