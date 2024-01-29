@@ -237,7 +237,7 @@ public struct SeriesScoring: Codable {
                 result += "<th class='best-throwout'>Best throwout</th>"
             }
         }
-        result += "</tr></thead>"
+        result += "</tr></thead><tbody>"
         
         for score in scores {
             let qualifiedClass = score.qualified ? "qualified" : "not-qualified"
