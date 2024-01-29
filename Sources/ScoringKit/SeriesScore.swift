@@ -14,7 +14,7 @@ public struct SeriesScore<CompetitorType: Competitor> {
     public var rank: Int? = nil
     public let raceScores: [RaceScore]
     
-    var textRank: String {
+    public var textRank: String {
         if let rank = rank {
             return rank.description
         }
