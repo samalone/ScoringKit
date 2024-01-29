@@ -23,3 +23,9 @@ public struct SeriesScore<CompetitorType: Competitor> {
         }
     }
 }
+
+extension SeriesScore: Identifiable where CompetitorType: Identifiable {
+    public var id: CompetitorType.ID {
+        competitor.id
+    }
+}
