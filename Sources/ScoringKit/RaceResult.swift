@@ -1,6 +1,6 @@
 import Foundation
 
-public enum RaceResult: Codable, Equatable {
+public enum RaceResult: Codable, Equatable, Sendable {
     case racing         // Still racing
     case finished(position: Int)  // Completed the race normally
     

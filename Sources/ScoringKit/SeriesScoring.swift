@@ -9,7 +9,7 @@
 import Foundation
 import HTMLString
 
-public struct SeriesScoring: Codable {
+public struct SeriesScoring: Codable, Sendable {
     public let scoringSystem: ScoringSystem
     // The RRS section A9 specifies slighly different handling
     // of boats that competed but did not finish

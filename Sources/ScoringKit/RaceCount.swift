@@ -8,7 +8,7 @@
 
 import Foundation
 
-public enum RacesToQualify: Codable {
+public enum RacesToQualify: Codable, Sendable {
     /// Everyone is qualified regardless of races sailed
     case none
     
@@ -40,7 +40,7 @@ public enum RacesToQualify: Codable {
     }
 }
 
-public enum RacesToExclude: Codable {
+public enum RacesToExclude: Codable, Sendable {
     case none
     case upTo(n: Int)
     case roundUp(percent: Int)

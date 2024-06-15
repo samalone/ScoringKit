@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum ScoringSystem: String, CaseIterable, Codable {
+public enum ScoringSystem: String, CaseIterable, Codable, Sendable {
     case lowPoint
     case bonusPoint
     case lowPointAveraged

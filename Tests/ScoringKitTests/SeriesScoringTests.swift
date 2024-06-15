@@ -43,8 +43,6 @@ func regattaColumns() -> [TableColumn<MyRace>] {
     }), .racesSailed, .bestThrowout, .score]
 }
 
-let seriesColumns: [TableColumn<MyRace>] = [.place, .competitor(header: "Skipper", html: {$0.html}), .racesSailed, .bestThrowout, .score]
-
 extension Collection {
     subscript(safe index: Index) -> Element? {
         return indices.contains(index) ? self[index] : nil
