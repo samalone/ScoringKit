@@ -10,14 +10,14 @@ import Foundation
 import HTMLString
 
 public struct SeriesScoring: Codable, Sendable {
-    public let scoringSystem: ScoringSystem
+    public var scoringSystem: ScoringSystem
     // The RRS section A9 specifies slighly different handling
     // of boats that competed but did not finish
     // for regattas and long series.
     // This flag controls which version is used.
-    public let longSeries: Bool
-    public let qualify: RacesToQualify
-    public let exclude: RacesToExclude
+    public var longSeries: Bool
+    public var qualify: RacesToQualify
+    public var exclude: RacesToExclude
     
     public init(scoringSystem: ScoringSystem, longSeries: Bool, qualify: RacesToQualify, exclude: RacesToExclude) {
         self.scoringSystem = scoringSystem

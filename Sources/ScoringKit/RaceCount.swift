@@ -8,7 +8,7 @@
 
 import Foundation
 
-public enum RacesToQualify: Codable, Sendable {
+public enum RacesToQualify: Codable, Sendable, Hashable {
     /// Everyone is qualified regardless of races sailed
     case none
     
@@ -38,9 +38,52 @@ public enum RacesToQualify: Codable, Sendable {
             return Int(round(Double(numberOfRaces) * Double(percent) / 100.0))
         }
     }
+    
+    public var name: String {
+        switch self {
+        case .none:
+            return "None"
+        case .all:
+            return "All"
+        case .fixed:
+            return "Fixed"
+        case .roundUp:
+            return "Round up"
+        case .roundDown:
+            return "Round down"
+        case .roundNearest:
+            return "Round to nearest"
+        }
+    }
+    
+    // Return an appropriate range for the argument.
+    // Useful when displaying a UI.
+    public var appropriateRange: ClosedRange<Int>? {
+        switch self {
+        case .none, .all:
+            return nil
+        case .fixed:
+            return 1...20
+        case .roundUp, .roundDown, .roundNearest:
+            return 1...99
+        }
+    }
+    
+    // Return a string indicating the units of the argument.
+    // Useful when displaying a UI.
+    public var units: String {
+        switch self {
+        case .none, .all:
+            return ""
+        case .fixed:
+            return ""
+        case .roundUp, .roundDown, .roundNearest:
+            return "%"
+        }
+    }
 }
 
-public enum RacesToExclude: Codable, Sendable {
+public enum RacesToExclude: Codable, Sendable, Hashable {
     case none
     case upTo(n: Int)
     case roundUp(percent: Int)
@@ -62,6 +105,49 @@ public enum RacesToExclude: Codable, Sendable {
             return Int(round(Double(numberOfRaces) * Double(percent) / 100.0))
         case .notNeededToQualify:
             return numberOfRaces - neededToQualify
+        }
+    }
+    
+    public var name: String {
+        switch self {
+        case .none:
+            return "None"
+        case .upTo:
+            return "Up to"
+        case .roundUp:
+            return "Round up"
+        case .roundDown:
+            return "Round down"
+        case .roundNearest:
+            return "Round to nearest"
+        case .notNeededToQualify:
+            return "Not needed to qualify"
+        }
+    }
+    
+    // Return an appropriate range for the argument.
+    // Useful when displaying a UI.
+    public var appropriateRange: ClosedRange<Int>? {
+        switch self {
+        case .none, .notNeededToQualify:
+            return nil
+        case .upTo:
+            return 1...10
+        case .roundUp, .roundDown, .roundNearest:
+            return 1...99
+        }
+    }
+    
+    // Return a string indicating the units of the argument.
+    // Useful when displaying a UI.
+    public var units: String {
+        switch self {
+        case .none, .notNeededToQualify:
+            return ""
+        case .upTo:
+            return ""
+        case .roundUp, .roundDown, .roundNearest:
+            return "%"
         }
     }
 }
