@@ -363,4 +363,4 @@ public enum TableColumn<RaceType: Race> {
 let defaultRegattaScoringSystem = SeriesScoring(scoringSystem: .lowPoint, longSeries: false,
                                                 qualify: .none, exclude: .upTo(n: 1))
 let defaultHighPointSystem = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: true,
-                                           qualify: .roundUp(percent: 75), exclude: .upTo(n: 1))
+                                           qualify: .percent(n: 75, rounded: .up), exclude: .upTo(n: 1))

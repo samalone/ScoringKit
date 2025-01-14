@@ -8,51 +8,58 @@
 
 import Foundation
 
+public enum RoundingDirection: Codable, Sendable, Hashable, CaseIterable {
+    case up
+    case down
+    case nearest
+    
+    public var name: String {
+        switch self {
+        case .up:
+            return "Rounded up"
+        case .down:
+            return "Rounded down"
+        case .nearest:
+            return "Rounded to nearest"
+        }
+    }
+    
+    public var roundingRule: FloatingPointRoundingRule {
+        switch self {
+        case .up:
+            return .up
+        case .down:
+            return .down
+        case .nearest:
+            return .toNearestOrAwayFromZero
+        }
+    }
+}
+
 public enum RacesToQualify: Codable, Sendable, Hashable {
-    /// Everyone is qualified regardless of races sailed
-    case none
-    
-    /// Must sail all races to qualify
-    case all
-    
     /// Must sail at least a fixed number of races
     case fixed(n: Int)
-
-    case roundUp(percent: Int)
-    case roundDown(percent: Int)
-    case roundNearest(percent: Int)
+    
+    case percent(n: Int, rounded: RoundingDirection)
+    
+    public static let all = RacesToQualify.percent(n: 100, rounded: .nearest)
+    public static let none = RacesToQualify.fixed(n: 0)
         
     public func calculate(numberOfRaces: Int) -> Int {
         switch self {
-        case .none:
-            return 0
-        case .all:
-            return numberOfRaces
+        case .percent(let n, let rounded):
+            return Int((Double(numberOfRaces) * Double(n) / 100.0).rounded(rounded.roundingRule))
         case .fixed(let n):
             return min(n, numberOfRaces)
-        case .roundUp(let percent):
-            return Int(ceil(Double(numberOfRaces) * Double(percent) / 100.0))
-        case .roundDown(let percent):
-            return Int(floor(Double(numberOfRaces) * Double(percent) / 100.0))
-        case .roundNearest(let percent):
-            return Int(round(Double(numberOfRaces) * Double(percent) / 100.0))
         }
     }
     
     public var name: String {
         switch self {
-        case .none:
-            return "None"
-        case .all:
-            return "All"
+        case .percent:
+            return "Percent"
         case .fixed:
             return "Fixed"
-        case .roundUp:
-            return "Round up"
-        case .roundDown:
-            return "Round down"
-        case .roundNearest:
-            return "Round to nearest"
         }
     }
     
@@ -60,49 +67,39 @@ public enum RacesToQualify: Codable, Sendable, Hashable {
     // Useful when displaying a UI.
     public var appropriateRange: ClosedRange<Int>? {
         switch self {
-        case .none, .all:
-            return nil
         case .fixed:
-            return 1...20
-        case .roundUp, .roundDown, .roundNearest:
-            return 1...99
+            return 0...20
+        case .percent:
+            return 0...100
         }
     }
     
     // Return a string indicating the units of the argument.
     // Useful when displaying a UI.
-    public var units: String {
+    public var unitSuffix: String {
         switch self {
-        case .none, .all:
-            return ""
         case .fixed:
             return ""
-        case .roundUp, .roundDown, .roundNearest:
+        case .percent:
             return "%"
         }
     }
 }
 
 public enum RacesToExclude: Codable, Sendable, Hashable {
-    case none
     case upTo(n: Int)
-    case roundUp(percent: Int)
-    case roundDown(percent: Int)
-    case roundNearest(percent: Int)
+    case percent(n: Int, rounded: RoundingDirection)
     case notNeededToQualify
+    
+    public static let none = RacesToExclude.upTo(n: 0)
     
     public func calculate(numberOfRaces: Int, neededToQualify: Int) -> Int {
         switch self {
-        case .none:
-            return 0
         case .upTo(let n):
             return min(n, numberOfRaces - 1)
-        case .roundUp(let percent):
-            return Int(ceil(Double(numberOfRaces) * Double(percent) / 100.0))
-        case .roundDown(let percent):
-            return Int(floor(Double(numberOfRaces) * Double(percent) / 100.0))
-        case .roundNearest(let percent):
-            return Int(round(Double(numberOfRaces) * Double(percent) / 100.0))
+        case .percent(let percent, let rounded):
+            return min(Int((Double(numberOfRaces) * Double(percent) / 100.0).rounded(rounded.roundingRule)),
+                       numberOfRaces - 1)
         case .notNeededToQualify:
             return numberOfRaces - neededToQualify
         }
@@ -110,16 +107,10 @@ public enum RacesToExclude: Codable, Sendable, Hashable {
     
     public var name: String {
         switch self {
-        case .none:
-            return "None"
         case .upTo:
             return "Up to"
-        case .roundUp:
-            return "Round up"
-        case .roundDown:
-            return "Round down"
-        case .roundNearest:
-            return "Round to nearest"
+        case .percent:
+            return "Percent"
         case .notNeededToQualify:
             return "Not needed to qualify"
         }
@@ -129,24 +120,22 @@ public enum RacesToExclude: Codable, Sendable, Hashable {
     // Useful when displaying a UI.
     public var appropriateRange: ClosedRange<Int>? {
         switch self {
-        case .none, .notNeededToQualify:
+        case .notNeededToQualify:
             return nil
         case .upTo:
-            return 1...10
-        case .roundUp, .roundDown, .roundNearest:
-            return 1...99
+            return 0...10
+        case .percent:
+            return 0...99
         }
     }
     
     // Return a string indicating the units of the argument.
     // Useful when displaying a UI.
-    public var units: String {
+    public var unitSuffix: String {
         switch self {
-        case .none, .notNeededToQualify:
+        case .notNeededToQualify, .upTo:
             return ""
-        case .upTo:
-            return ""
-        case .roundUp, .roundDown, .roundNearest:
+        case .percent:
             return "%"
         }
     }
