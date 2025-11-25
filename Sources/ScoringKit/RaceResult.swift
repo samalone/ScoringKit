@@ -1,7 +1,6 @@
 import Foundation
 
 public enum RaceResult: Codable, Equatable, Sendable, Hashable {
-    case racing         // Still racing
     case finished(position: Int)  // Completed the race normally
     
     case dnc    // Did not start; did not come to the starting area
@@ -16,7 +15,9 @@ public enum RaceResult: Codable, Equatable, Sendable, Hashable {
     case dgm    // Disqualification under rule 69.1(b)(2); not excludable
     case rdg    // Redress given
     case zfp    // 20% penalty under rule 30.2
-    
+
+    case racing  // Still racing
+
     public init?(_ value: String) {
         switch value.uppercased() {
         case "": self = .racing
@@ -65,8 +66,6 @@ public enum RaceResult: Codable, Equatable, Sendable, Hashable {
 extension RaceResult: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .racing:
-            return ""
         case .finished(let position):
             return position.description
         case .dnc:
@@ -93,6 +92,8 @@ extension RaceResult: CustomStringConvertible {
             return "RDG"
         case .zfp:
             return "ZFP"
+        case .racing:
+            return ""
         }
     }
 }
@@ -106,5 +107,37 @@ extension RaceResult: ExpressibleByStringLiteral {
 extension RaceResult: ExpressibleByIntegerLiteral {
     public init(integerLiteral value: Int) {
         self = .finished(position: value)
+    }
+}
+
+extension RaceResult: Comparable {
+    /// Returns the sort order index for non-finished cases
+    private var sortOrder: Int {
+        switch self {
+        case .finished: return 1
+        case .dnc: return 2
+        case .dns: return 3
+        case .ocs: return 4
+        case .bfd: return 5
+        case .scp: return 6
+        case .dnf: return 7
+        case .raf: return 8
+        case .dsq: return 9
+        case .dne: return 10
+        case .dgm: return 11
+        case .rdg: return 12
+        case .zfp: return 13
+        case .racing: return 14
+        }
+    }
+    
+    public static func < (lhs: RaceResult, rhs: RaceResult) -> Bool {
+        // If both are finished, compare by position
+        if case .finished(let lhsPosition) = lhs, case .finished(let rhsPosition) = rhs {
+            return lhsPosition < rhsPosition
+        }
+        
+        // Otherwise, compare by sort order
+        return lhs.sortOrder < rhs.sortOrder
     }
 }

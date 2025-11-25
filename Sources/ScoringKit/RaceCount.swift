@@ -37,16 +37,23 @@ public enum RoundingDirection: Codable, Sendable, Hashable, CaseIterable {
 }
 
 public enum RacesToQualify: Codable, Sendable, Hashable {
+    /// Must sail all races
+    case all
+    
+    /// No qualification requirement
+    case none
+    
     /// Must sail at least a fixed number of races
     case fixed(n: Int)
     
     case percent(n: Int, rounded: RoundingDirection)
-    
-    public static let all = RacesToQualify.percent(n: 100, rounded: .nearest)
-    public static let none = RacesToQualify.fixed(n: 0)
         
     public func calculate(numberOfRaces: Int) -> Int {
         switch self {
+        case .all:
+            return numberOfRaces
+        case .none:
+            return 0
         case .percent(let n, let rounded):
             return Int((Double(numberOfRaces) * Double(n) / 100.0).rounded(rounded.roundingRule))
         case .fixed(let n):
@@ -56,6 +63,10 @@ public enum RacesToQualify: Codable, Sendable, Hashable {
     
     public var name: String {
         switch self {
+        case .all:
+            return "All"
+        case .none:
+            return "None"
         case .percent:
             return "Percent"
         case .fixed:
@@ -67,6 +78,8 @@ public enum RacesToQualify: Codable, Sendable, Hashable {
     // Useful when displaying a UI.
     public var appropriateRange: ClosedRange<Int>? {
         switch self {
+        case .all, .none:
+            return nil
         case .fixed:
             return 0...20
         case .percent:
@@ -78,7 +91,7 @@ public enum RacesToQualify: Codable, Sendable, Hashable {
     // Useful when displaying a UI.
     public var unitSuffix: String {
         switch self {
-        case .fixed:
+        case .all, .none, .fixed:
             return ""
         case .percent:
             return "%"
@@ -87,14 +100,15 @@ public enum RacesToQualify: Codable, Sendable, Hashable {
 }
 
 public enum RacesToExclude: Codable, Sendable, Hashable {
+    case none
     case upTo(n: Int)
     case percent(n: Int, rounded: RoundingDirection)
     case notNeededToQualify
     
-    public static let none = RacesToExclude.upTo(n: 0)
-    
     public func calculate(numberOfRaces: Int, neededToQualify: Int) -> Int {
         switch self {
+        case .none:
+            return 0
         case .upTo(let n):
             return min(n, numberOfRaces - 1)
         case .percent(let percent, let rounded):
@@ -107,6 +121,8 @@ public enum RacesToExclude: Codable, Sendable, Hashable {
     
     public var name: String {
         switch self {
+        case .none:
+            return "None"
         case .upTo:
             return "Up to"
         case .percent:
@@ -120,7 +136,7 @@ public enum RacesToExclude: Codable, Sendable, Hashable {
     // Useful when displaying a UI.
     public var appropriateRange: ClosedRange<Int>? {
         switch self {
-        case .notNeededToQualify:
+        case .none, .notNeededToQualify:
             return nil
         case .upTo:
             return 0...10
@@ -133,7 +149,7 @@ public enum RacesToExclude: Codable, Sendable, Hashable {
     // Useful when displaying a UI.
     public var unitSuffix: String {
         switch self {
-        case .notNeededToQualify, .upTo:
+        case .none, .notNeededToQualify, .upTo:
             return ""
         case .percent:
             return "%"

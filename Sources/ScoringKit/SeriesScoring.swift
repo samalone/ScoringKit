@@ -128,10 +128,11 @@ public struct SeriesScoring: Codable, Sendable {
         
         var scores: [SeriesScore<RaceType.CompetitorType>] = []
         for competitor in competitors {
-            let totalPoints = competitorRaceScores[competitor]!.map({$0.excluded ? Points() : $0.points}).reduce(Points(), +)
-            let sailed: Int = competitorRaceScores[competitor]!.map({($0.result == .dnc) ? 0 : 1}).reduce(0, +)
+            let raceScores = competitorRaceScores[competitor]!
+            let totalPoints = raceScores.map({$0.excluded ? Points() : $0.points}).reduce(Points(), +)
+            let sailed: Int = raceScores.map({($0.result == .dnc) ? 0 : 1}).reduce(0, +)
             let qualified = (sailed >= racesToQualify)
-            scores.append(SeriesScore(competitor: competitor, racesSailed: sailed, totalPoints: totalPoints, qualified: qualified, raceScores: competitorRaceScores[competitor]!))
+            scores.append(SeriesScore(competitor: competitor, racesSailed: sailed, totalPoints: totalPoints, qualified: qualified, raceScores: raceScores))
         }
         sortScores(&scores)
         for i in scores.indices {
