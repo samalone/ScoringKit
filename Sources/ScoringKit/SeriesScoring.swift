@@ -300,6 +300,260 @@ public struct SeriesScoring: Codable, Sendable {
         return result
     }
     
+    private enum ColumnAlignment {
+        case left
+        case center
+        case right
+    }
+    
+    public func toMarkdown<RaceType: Race>(races: [RaceType],
+                                           scores: [SeriesScore<RaceType.CompetitorType>],
+                                           columns: [TableColumn<RaceType>],
+                                           competitorFormatter: (RaceType.CompetitorType) -> String,
+                                           debug: Bool = false) -> String {
+        // Helper to escape pipe characters in markdown table cells
+        func escapeMarkdownCell(_ text: String) -> String {
+            return text.replacingOccurrences(of: "|", with: "\\|")
+        }
+        
+        // Helper to count visible characters (excluding markdown formatting that doesn't render)
+        // HTML comments don't count, but escape sequences like \| count as 1 visible character
+        func visibleWidth(_ text: String) -> Int {
+            var workingText = text
+            
+            // Remove HTML comments first
+            while let commentStart = workingText.range(of: "<!--") {
+                if let commentEnd = workingText.range(of: "-->", range: commentStart.upperBound..<workingText.endIndex) {
+                    workingText.removeSubrange(commentStart.lowerBound..<commentEnd.upperBound)
+                } else {
+                    break
+                }
+            }
+            
+            // Remove strikethrough markers (~~text~~) - remove all ~~
+            workingText = workingText.replacingOccurrences(of: "~~", with: "")
+            
+            // Remove italic markers (*text*) - remove all single asterisks
+            // We need to preserve escaped asterisks, so handle them carefully
+            var cleanedText = ""
+            var i = workingText.startIndex
+            while i < workingText.endIndex {
+                if workingText[i] == "\\" && workingText.index(after: i) < workingText.endIndex {
+                    // Escape sequence - keep both characters for now
+                    cleanedText.append(workingText[i])
+                    i = workingText.index(after: i)
+                    cleanedText.append(workingText[i])
+                    i = workingText.index(after: i)
+                } else if workingText[i] == "*" {
+                    // Skip italic markers
+                    i = workingText.index(after: i)
+                } else {
+                    cleanedText.append(workingText[i])
+                    i = workingText.index(after: i)
+                }
+            }
+            
+            // Now count visible characters, accounting for escape sequences
+            var width = 0
+            i = cleanedText.startIndex
+            while i < cleanedText.endIndex {
+                if cleanedText[i] == "\\" && cleanedText.index(after: i) < cleanedText.endIndex {
+                    // Escaped character - count as 1 visible character
+                    width += 1
+                    i = cleanedText.index(i, offsetBy: 2)
+                } else {
+                    width += 1
+                    i = cleanedText.index(after: i)
+                }
+            }
+            return width
+        }
+        
+        // PASS 1: Collect all cell values and determine column widths
+        var allRows: [[String]] = []
+        var alignments: [ColumnAlignment] = []
+        
+        // Build header row
+        var headerCells: [String] = []
+        for column in columns {
+            switch column {
+            case .competitor(let header, _):
+                headerCells.append(header)
+                alignments.append(.left)
+            case .race(let raceNamer):
+                for race in races {
+                    headerCells.append(escapeMarkdownCell(raceNamer(race)))
+                    alignments.append(.center)
+                }
+            case .score:
+                headerCells.append("Score")
+                alignments.append(.center)
+            case .place:
+                headerCells.append("")
+                alignments.append(.right)
+            case .racesSailed:
+                headerCells.append("Races sailed")
+                alignments.append(.center)
+            case .bestThrowout:
+                headerCells.append("Best throwout")
+                alignments.append(.center)
+            }
+        }
+        allRows.append(headerCells)
+        
+        // Build data rows
+        for score in scores {
+            var rowCells: [String] = []
+            
+            for column in columns {
+                switch column {
+                case .competitor:
+                    var competitorText = escapeMarkdownCell(competitorFormatter(score.competitor))
+                    if !score.qualified {
+                        competitorText = "*" + competitorText + "*"
+                    }
+                    rowCells.append(competitorText)
+                    
+                case .race:
+                    for raceScore in score.raceScores {
+                        var cellText = escapeMarkdownCell(scoringSystem.describe(score: raceScore, debug: debug))
+                        
+                        if raceScore.excluded {
+                            cellText = "~~" + cellText + "~~"
+                        }
+                        
+                        switch raceScore.status {
+                        case .tied:
+                            cellText = "<!-- tied -->" + cellText
+                        case .error:
+                            cellText = "<!-- error -->" + cellText
+                        case .ok:
+                            break
+                        }
+                        
+                        rowCells.append(cellText)
+                    }
+                    
+                case .score:
+                    var scoreText = ""
+                    if !((scoringSystem == .lowPoint) && !score.qualified) {
+                        scoreText = escapeMarkdownCell(scoringSystem.describe(score.totalPoints, debug: debug))
+                    }
+                    if !score.qualified && scoreText.isEmpty {
+                        scoreText = "-"
+                    }
+                    rowCells.append(scoreText)
+                    
+                case .place:
+                    let rankText = escapeMarkdownCell(score.rank.map { String($0) } ?? "")
+                    rowCells.append(rankText)
+                    
+                case .racesSailed:
+                    rowCells.append(escapeMarkdownCell(String(score.racesSailed)))
+                    
+                case .bestThrowout:
+                    var throwoutText = ""
+                    if !((scoringSystem == .lowPoint) && !score.qualified) {
+                        if let bestThrowout = score.raceScores.filter({$0.excluded}).sorted(by: {scoringSystem.betterScore($0.points, $1.points)}).first {
+                            throwoutText = escapeMarkdownCell(scoringSystem.describe(score: bestThrowout, debug: debug))
+                        }
+                    }
+                    rowCells.append(throwoutText)
+                }
+            }
+            
+            allRows.append(rowCells)
+        }
+        
+        // Calculate column widths
+        var columnWidths: [Int] = Array(repeating: 0, count: alignments.count)
+        for row in allRows {
+            for (colIndex, cell) in row.enumerated() {
+                if colIndex < columnWidths.count {
+                    columnWidths[colIndex] = max(columnWidths[colIndex], visibleWidth(cell))
+                }
+            }
+        }
+        
+        // Ensure center-aligned columns have minimum width of 3 (required for :-: marker)
+        for (colIndex, alignment) in alignments.enumerated() {
+            if colIndex < columnWidths.count && alignment == .center {
+                columnWidths[colIndex] = max(3, columnWidths[colIndex])
+            }
+        }
+        
+        // Helper to pad a cell based on alignment
+        func padCell(_ text: String, width: Int, alignment: ColumnAlignment) -> String {
+            let visibleLen = visibleWidth(text)
+            let padding = max(0, width - visibleLen)
+            
+            switch alignment {
+            case .left:
+                return text + String(repeating: " ", count: padding)
+            case .right:
+                return String(repeating: " ", count: padding) + text
+            case .center:
+                let leftPad = padding / 2
+                let rightPad = padding - leftPad
+                return String(repeating: " ", count: leftPad) + text + String(repeating: " ", count: rightPad)
+            }
+        }
+        
+        // PASS 2: Generate formatted markdown table
+        var result = ""
+        
+        // Header row
+        var formattedHeaderCells: [String] = []
+        for (colIndex, cell) in headerCells.enumerated() {
+            if colIndex < columnWidths.count && colIndex < alignments.count {
+                formattedHeaderCells.append(padCell(cell, width: columnWidths[colIndex], alignment: alignments[colIndex]))
+            } else {
+                formattedHeaderCells.append(cell)
+            }
+        }
+        result += "| " + formattedHeaderCells.joined(separator: " | ") + " |\n"
+        
+        // Alignment row - each alignment marker should match the column width
+        var alignmentCells: [String] = []
+        for (colIndex, alignment) in alignments.enumerated() {
+            if colIndex < columnWidths.count {
+                let width = columnWidths[colIndex] // Width already adjusted for center columns
+                switch alignment {
+                case .left:
+                    // :--- format, total width should be 'width'
+                    alignmentCells.append(":" + String(repeating: "-", count: max(1, width - 1)))
+                case .center:
+                    // :---: format, dashes in middle, total width should be 'width'
+                    // width is guaranteed to be at least 3 for center columns
+                    let dashCount = width - 2 // Width >= 3, so dashCount >= 1
+                    alignmentCells.append(":" + String(repeating: "-", count: dashCount) + ":")
+                case .right:
+                    // ---: format, total width should be 'width'
+                    alignmentCells.append(String(repeating: "-", count: max(1, width - 1)) + ":")
+                }
+            } else {
+                alignmentCells.append("---")
+            }
+        }
+        result += "| " + alignmentCells.joined(separator: " | ") + " |\n"
+        
+        // Data rows
+        for rowIndex in 1..<allRows.count {
+            let row = allRows[rowIndex]
+            var formattedCells: [String] = []
+            for (colIndex, cell) in row.enumerated() {
+                if colIndex < columnWidths.count && colIndex < alignments.count {
+                    formattedCells.append(padCell(cell, width: columnWidths[colIndex], alignment: alignments[colIndex]))
+                } else {
+                    formattedCells.append(cell)
+                }
+            }
+            result += "| " + formattedCells.joined(separator: " | ") + " |\n"
+        }
+        
+        return result
+    }
+    
     static let sampleCSS = """
         body {
           font-family: sans-serif;
