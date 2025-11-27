@@ -14,10 +14,12 @@ import Foundation
 // for code sharing and to display the calculations.
 
 public class RaceScore {
-    // These two fields are copied from the Results for a particular competitor,
-    // and do not change during the scoring process.
+    // The result is copied from the Results for a particular competitor,
+    // and does not change during the scoring process.
     public let result: RaceResult
-    public let points: Points
+    
+    // Points may be adjusted for ties per US Sailing A7 rule.
+    public var points: Points
 
     // These fields are computed as part of the scoring process,
     // and may change during different phases of scoring.

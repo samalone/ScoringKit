@@ -77,6 +77,68 @@ public struct SeriesScoring: Codable, Sendable {
         }
     }
     
+    /// Adjusts points for tied boats per US Sailing A7 rule.
+    /// "If boats are tied at the finishing line... the points for the place for which the boats
+    /// have tied and for the place(s) immediately below shall be added together and divided equally."
+    func adjustPointsForTies<CompetitorType: Competitor>(scores: [CompetitorType: [RaceScore]]) {
+        guard scores.count > 0 else { return }
+        guard let raceCount = scores.randomElement()?.value.count, raceCount > 0 else { return }
+        
+        // Only lowPoint and bonusPoint systems split points for ties
+        guard scoringSystem == .lowPoint || scoringSystem == .bonusPoint else { return }
+        
+        for raceIndex in 0 ..< raceCount {
+            // Group finished RaceScores by their position
+            var positionGroups: [Int: [RaceScore]] = [:]
+            for raceScores in scores.values {
+                let raceScore = raceScores[raceIndex]
+                guard case let .finished(position) = raceScore.result else { continue }
+                positionGroups[position, default: []].append(raceScore)
+            }
+            
+            // For each group with more than one boat (a tie), calculate split points
+            for (position, tiedScores) in positionGroups {
+                guard tiedScores.count > 1 else { continue }
+                
+                // Calculate sum of points for positions: position, position+1, ..., position+count-1
+                var sumNumerator = 0
+                let count = tiedScores.count
+                
+                if scoringSystem == .lowPoint {
+                    // Low point: positions are just the position numbers
+                    // Sum = position + (position+1) + ... + (position+count-1)
+                    for i in 0 ..< count {
+                        sumNumerator += position + i
+                    }
+                } else {
+                    // Bonus point: need to look up bonus points for each position
+                    // Bonus points are stored as integers * 10 (e.g., 5.7 = 57)
+                    for i in 0 ..< count {
+                        let pos = position + i
+                        let bonusPoints: Int
+                        switch pos {
+                        case 1: bonusPoints = 0
+                        case 2: bonusPoints = 30
+                        case 3: bonusPoints = 57
+                        case 4: bonusPoints = 80
+                        case 5: bonusPoints = 100
+                        case 6: bonusPoints = 117
+                        case 7: bonusPoints = 130
+                        default: bonusPoints = 130 + (10 * (pos - 7))
+                        }
+                        sumNumerator += bonusPoints
+                    }
+                }
+                
+                // Assign split points to all tied boats
+                let splitPoints = Points(numerator: sumNumerator, denominator: count)
+                for raceScore in tiedScores {
+                    raceScore.points = splitPoints
+                }
+            }
+        }
+    }
+    
     func tagResultStatus<CompetitorType: Competitor>(scores: [CompetitorType: [RaceScore]]) {
         guard scores.count > 0 else { return }
         guard let raceCount = scores.randomElement()?.value.count, raceCount > 0 else { return }
@@ -121,6 +183,9 @@ public struct SeriesScoring: Codable, Sendable {
         let competitors = collectCompetitors(races)
         let competitorRaceScores = collectRaceScores(races: races, competitorsInSeries: competitors.count)
         
+        // Adjust points for ties per US Sailing A7 rule.
+        adjustPointsForTies(scores: competitorRaceScores)
+        
         // Go through the results of each race, marking any ties or obvious scoring errors.
         tagResultStatus(scores: competitorRaceScores)
         
@@ -129,7 +194,15 @@ public struct SeriesScoring: Codable, Sendable {
         var scores: [SeriesScore<RaceType.CompetitorType>] = []
         for competitor in competitors {
             let raceScores = competitorRaceScores[competitor]!
-            let totalPoints = raceScores.map({$0.excluded ? Points() : $0.points}).reduce(Points(), +)
+            // For lowPoint/bonusPoint, use proper fraction addition (for A7 tie splitting).
+            // For highPointPercentage, use accumulation addition (earned/possible).
+            let totalPoints: Points
+            switch scoringSystem {
+            case .lowPoint, .bonusPoint:
+                totalPoints = raceScores.map({$0.excluded ? Points() : $0.points}).reduce(Points()) { $0.addingFraction($1) }
+            default:
+                totalPoints = raceScores.map({$0.excluded ? Points() : $0.points}).reduce(Points(), +)
+            }
             let sailed: Int = raceScores.map({($0.result == .dnc) ? 0 : 1}).reduce(0, +)
             let qualified = (sailed >= racesToQualify)
             scores.append(SeriesScore(competitor: competitor, racesSailed: sailed, totalPoints: totalPoints, qualified: qualified, raceScores: raceScores))

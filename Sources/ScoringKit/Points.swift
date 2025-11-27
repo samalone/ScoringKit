@@ -32,6 +32,8 @@ public struct Points {
         self.denominator = denominator
     }
     
+    /// Adds points by accumulating numerators and denominators.
+    /// Used by highPointPercentage to calculate (total earned / total possible).
     static func +(lhs: Points, rhs: Points) -> Points {
         return Points(numerator: lhs.numerator + rhs.numerator,
                       denominator: lhs.denominator + rhs.denominator)
@@ -40,5 +42,27 @@ public struct Points {
     static func += (lhs: inout Points, rhs: Points) {
         lhs.numerator += rhs.numerator
         lhs.denominator += rhs.denominator
+    }
+    
+    /// Adds points as proper fractions: a/b + c/d = (ad + bc) / bd
+    /// Used by lowPoint/bonusPoint when A7 tie splitting creates fractional scores.
+    func addingFraction(_ other: Points) -> Points {
+        // Handle zero denominators (empty points)
+        if self.denominator == 0 {
+            return other
+        }
+        if other.denominator == 0 {
+            return self
+        }
+        
+        // Same denominator: a/n + b/n = (a+b)/n
+        if self.denominator == other.denominator {
+            return Points(numerator: self.numerator + other.numerator,
+                          denominator: self.denominator)
+        }
+        
+        // Different denominators: a/b + c/d = (ad + bc) / bd
+        return Points(numerator: self.numerator * other.denominator + other.numerator * self.denominator,
+                      denominator: self.denominator * other.denominator)
     }
 }

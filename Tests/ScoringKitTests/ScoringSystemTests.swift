@@ -291,10 +291,14 @@ import Testing
 
 @Test func describeBonusPoint() {
     let system = ScoringSystem.bonusPoint
-    // Bonus points are stored as integers (e.g., 30 for 2nd place), displayed as 3.0
-    #expect(system.describe(Points(30)) == "3.0")
-    #expect(system.describe(Points(57)) == "5.7")
-    #expect(system.describe(Points(100)) == "10.0")
+    // Bonus points are stored as integers (e.g., 30 for 2nd place), displayed with 2 decimal places
+    // to accommodate fractional points from tie splitting (e.g., 6.85 for tied 3rd/4th)
+    #expect(system.describe(Points(30)) == "3.00")
+    #expect(system.describe(Points(57)) == "5.70")
+    #expect(system.describe(Points(100)) == "10.00")
+    
+    // Fractional points from tie (57+80)/2 = 137/2 = 6.85
+    #expect(system.describe(Points(numerator: 137, denominator: 2)) == "6.85")
 }
 
 @Test func describeLowPointAveraged() {
@@ -337,7 +341,7 @@ import Testing
     #expect(system.describe(score: score1) == "2")
     
     let score2 = RaceScore(result: .dnf, points: Points(150))
-    #expect(system.describe(score: score2) == "DNF 15.0")
+    #expect(system.describe(score: score2) == "DNF 15.00")
 }
 
 @Test func describeScoreLowPointAveraged() {

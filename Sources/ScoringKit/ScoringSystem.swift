@@ -103,7 +103,8 @@ public enum ScoringSystem: String, CaseIterable, Codable, Sendable {
     func betterScore(_ lhs: Points, _ rhs: Points) -> Bool {
         switch self {
         case .lowPoint, .bonusPoint:
-            return lhs.numerator < rhs.numerator
+            // Use cross-multiplication to compare fractions: a/b < c/d iff a*d < c*b
+            return (lhs.numerator * rhs.denominator) < (rhs.numerator * lhs.denominator)
         case .lowPointAveraged:
             switch (lhs.denominator, rhs.denominator) {
             case (0, 0):
@@ -132,7 +133,8 @@ public enum ScoringSystem: String, CaseIterable, Codable, Sendable {
     func sameScore(_ lhs: Points, _ rhs: Points) -> Bool {
         switch self {
         case .lowPoint, .bonusPoint:
-            return lhs.numerator == rhs.numerator
+            // Use cross-multiplication to compare fractions: a/b == c/d iff a*d == c*b
+            return (lhs.numerator * rhs.denominator) == (rhs.numerator * lhs.denominator)
         case .lowPointAveraged:
             switch (lhs.denominator, rhs.denominator) {
             case (0, 0):
@@ -179,9 +181,16 @@ public enum ScoringSystem: String, CaseIterable, Codable, Sendable {
     public func describe(_ points: Points, debug: Bool = false) -> String {
         switch self {
         case .lowPoint:
-            return points.numerator.description
+            // Handle fractional points from tie splitting (A7)
+            if points.denominator == 1 {
+                return points.numerator.description
+            } else {
+                return String(format: "%.1f", Double(points.numerator) / Double(points.denominator))
+            }
         case .bonusPoint:
-            return String(format: "%.1f", Double(points.numerator) / 10.0)
+            // Bonus points are stored as integers * 10 (e.g., 5.7 = 57)
+            // Handle fractional points from tie splitting (A7)
+            return String(format: "%.2f", Double(points.numerator) / (10.0 * Double(points.denominator)))
         case .lowPointAveraged:
             guard points.denominator != 0 else { return "-" }
             return (debug ? "\(points.numerator)/\(points.denominator) " : "") + String(format: "%.2f", Double(points.numerator) / Double(points.denominator))

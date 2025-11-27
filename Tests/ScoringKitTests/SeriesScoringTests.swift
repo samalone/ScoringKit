@@ -573,9 +573,6 @@ import Testing
 // together and divided equally."
 // Example: Two boats have the same corrected time for third place. Under the Low Point System they would each
 // score 3.5 points [(3+4)/2], and there is no change to the scores of any other boats.
-// NOTE: The current library implementation does NOT split points for ties. It marks ties with .tied status
-// but assigns each tied boat the full points for their position (3 points each, not 3.5). This test documents
-// the expected behavior per US Sailing rules, which the library does not currently implement.
 @Test func usSailingA7RaceTies() {
     let boatA = Skipper(name: "Boat A")
     let boatB = Skipper(name: "Boat B")
@@ -592,35 +589,134 @@ import Testing
     // Find the scores for boats A and B
     let scoreA = scores.first(where: { $0.competitor == boatA })!
     let scoreB = scores.first(where: { $0.competitor == boatB })!
+    let scoreC = scores.first(where: { $0.competitor == boatC })!
+    let scoreD = scores.first(where: { $0.competitor == boatD })!
     
-    // Both should have tied status (library correctly marks ties)
+    // Both A and B should have tied status
     #expect(scoreA.raceScores[0].status == .tied)
     #expect(scoreB.raceScores[0].status == .tied)
     
-    // According to US Sailing A7, the points should be split: (3 + 4) / 2 = 3.5
-    // However, the library currently assigns 3 points to each (doesn't split)
-    // This documents the gap: library assigns 3, but should assign 3.5 (7/2)
-    #expect(scoreA.raceScores[0].points.numerator == 3) // Current behavior
-    #expect(scoreA.raceScores[0].points.denominator == 1) // Current behavior
-    // TODO: Library should implement A7 point splitting: (3+4)/2 = 7/2 = 3.5
+    // Per US Sailing A7, tied boats split points: (3 + 4) / 2 = 7/2 = 3.5
+    #expect(scoreA.raceScores[0].points.numerator == 7)   // 3 + 4
+    #expect(scoreA.raceScores[0].points.denominator == 2) // / 2
+    #expect(scoreB.raceScores[0].points.numerator == 7)
+    #expect(scoreB.raceScores[0].points.denominator == 2)
+    
+    // C (1st) and D (2nd) are not tied, so their points are unchanged
+    #expect(scoreC.raceScores[0].points.numerator == 1)
+    #expect(scoreC.raceScores[0].points.denominator == 1)
+    #expect(scoreD.raceScores[0].points.numerator == 2)
+    #expect(scoreD.raceScores[0].points.denominator == 1)
+    
+    // Total scores for series
+    #expect(scoreA.totalPoints.numerator == 7)
+    #expect(scoreA.totalPoints.denominator == 2)
+}
+
+// A7 - Three-way tie test
+// Three boats tied for 2nd place: (2+3+4)/3 = 9/3 = 3 points each
+@Test func usSailingA7ThreeWayTie() {
+    let boat1 = Skipper(name: "Boat 1")
+    let boat2 = Skipper(name: "Boat 2")
+    let boat3 = Skipper(name: "Boat 3")
+    let boat4 = Skipper(name: "Boat 4")
+    
+    let scoring = SeriesScoring(scoringSystem: .lowPoint, longSeries: false, qualify: .none, exclude: .none)
+    // Boat 1 wins, boats 2, 3, 4 all tie for 2nd
+    let races = [
+        TestRace(results: [boat1: 1, boat2: 2, boat3: 2, boat4: 2])
+    ]
+    let scores = scoring.calculateScores(races)
+    
+    let score1 = scores.first(where: { $0.competitor == boat1 })!
+    let score2 = scores.first(where: { $0.competitor == boat2 })!
+    let score3 = scores.first(where: { $0.competitor == boat3 })!
+    let score4 = scores.first(where: { $0.competitor == boat4 })!
+    
+    // Boat 1 is not tied
+    #expect(score1.raceScores[0].points.numerator == 1)
+    #expect(score1.raceScores[0].points.denominator == 1)
+    
+    // Boats 2, 3, 4 split points: (2+3+4)/3 = 9/3
+    #expect(score2.raceScores[0].points.numerator == 9)
+    #expect(score2.raceScores[0].points.denominator == 3)
+    #expect(score3.raceScores[0].points.numerator == 9)
+    #expect(score3.raceScores[0].points.denominator == 3)
+    #expect(score4.raceScores[0].points.numerator == 9)
+    #expect(score4.raceScores[0].points.denominator == 3)
+}
+
+// A7 - Bonus Point system ties
+// Two boats tied for 3rd: bonus(3)=57, bonus(4)=80, split = (57+80)/2 = 137/2 = 6.85 points
+@Test func usSailingA7BonusPointTies() {
+    let boat1 = Skipper(name: "Boat 1")
+    let boat2 = Skipper(name: "Boat 2")
+    let boat3 = Skipper(name: "Boat 3")
+    let boat4 = Skipper(name: "Boat 4")
+    
+    let scoring = SeriesScoring(scoringSystem: .bonusPoint, longSeries: false, qualify: .none, exclude: .none)
+    // Boats 3 and 4 tie for 3rd place
+    let races = [
+        TestRace(results: [boat1: 1, boat2: 2, boat3: 3, boat4: 3])
+    ]
+    let scores = scoring.calculateScores(races)
+    
+    let score1 = scores.first(where: { $0.competitor == boat1 })!
+    let score2 = scores.first(where: { $0.competitor == boat2 })!
+    let score3 = scores.first(where: { $0.competitor == boat3 })!
+    let score4 = scores.first(where: { $0.competitor == boat4 })!
+    
+    // Boat 1: 1st = 0 bonus points
+    #expect(score1.raceScores[0].points.numerator == 0)
+    #expect(score1.raceScores[0].points.denominator == 1)
+    
+    // Boat 2: 2nd = 30 bonus points (3.0)
+    #expect(score2.raceScores[0].points.numerator == 30)
+    #expect(score2.raceScores[0].points.denominator == 1)
+    
+    // Boats 3 and 4: split (57+80)/2 = 137/2 = 6.85 points
+    #expect(score3.raceScores[0].points.numerator == 137) // 57 + 80
+    #expect(score3.raceScores[0].points.denominator == 2)
+    #expect(score4.raceScores[0].points.numerator == 137)
+    #expect(score4.raceScores[0].points.denominator == 2)
+}
+
+// A7 - All boats tie for 1st
+@Test func usSailingA7AllTiedForFirst() {
+    let boat1 = Skipper(name: "Boat 1")
+    let boat2 = Skipper(name: "Boat 2")
+    let boat3 = Skipper(name: "Boat 3")
+    
+    let scoring = SeriesScoring(scoringSystem: .lowPoint, longSeries: false, qualify: .none, exclude: .none)
+    // All boats tie for 1st
+    let races = [
+        TestRace(results: [boat1: 1, boat2: 1, boat3: 1])
+    ]
+    let scores = scoring.calculateScores(races)
+    
+    // All should split: (1+2+3)/3 = 6/3 = 2 points each
+    for score in scores {
+        #expect(score.raceScores[0].points.numerator == 6)
+        #expect(score.raceScores[0].points.denominator == 3)
+    }
 }
 
 // A8.1 - Series Tie Breaking by Best Scores
 // "If there is a series-score tie between two or more boats, each boat's race scores shall be listed in order
 // of best to worst, and at the first point(s) where there is a difference the tie shall be broken in favour
 // of the boat(s) with the best score(s)."
-// Example from document: Three boats (A, B, C) all tied with 16 points, broken by "most firsts" rule.
+// Example from document: Three boats (A, B, C) - the document assumes no A7 point splitting.
+// With A7 implemented, race ties cause fractional point differences, so boats may no longer
+// have identical series totals.
 @Test func usSailingA81SeriesTieBreakingByBestScores() {
     let boatA = Skipper(name: "Boat A")
     let boatB = Skipper(name: "Boat B")
     let boatC = Skipper(name: "Boat C")
     
-    // From the document example:
-    // Boat A: 1, 2, 3, 4, 5, 1 = 16 points (one score excluded)
-    // Boat B: 2, 1, 3, 4, 5, 1 = 16 points (one score excluded)
-    // Boat C: 1, 2, 7, 3, 3, 14 = 16 points (one score excluded)
-    // All have scores of 1,2,3,4,5 that count, so A8.1 doesn't break the tie between A and B
-    // But C has 1,2,3,3,7,14 - different pattern, so C should be ranked differently
+    // From the document example positions (which creates race ties):
+    // Boat A: positions 1, 2, 3, 4, 5, 1 (ties with C in races 1,2 and with B in races 3,4,5,6)
+    // Boat B: positions 2, 1, 3, 4, 5, 1 (ties with A in races 3,4,5,6)
+    // Boat C: positions 1, 2, 7, 3, 3, 14 (ties with A in races 1,2)
     
     let scoring = SeriesScoring(scoringSystem: .lowPoint, longSeries: false, qualify: .none, exclude: .upTo(n: 1))
     let races = [
@@ -637,28 +733,25 @@ import Testing
     let scoreB = scores.first(where: { $0.competitor == boatB })!
     let scoreC = scores.first(where: { $0.competitor == boatC })!
     
-    // Boat A: [1, 2, 3, 4, 5, 1] - worst score is 5, excluding it: 1+2+3+4+1 = 11
-    // Boat B: [2, 1, 3, 4, 5, 1] - worst score is 5, excluding it: 2+1+3+4+1 = 11
-    // Boat C: [1, 2, 7, 3, 3, 14] - worst score is 14, excluding it: 1+2+7+3+3 = 16
-    // Note: The document says "16 points (one score excluded)" which refers to the total
-    // of all scores before exclusion. After excluding worst scores, A and B have 11, C has 16.
-    #expect(scoreA.totalPoints.numerator == 11) // 1+2+3+4+1 (excluding worst: 5)
-    #expect(scoreB.totalPoints.numerator == 11) // 2+1+3+4+1 (excluding worst: 5)
-    #expect(scoreC.totalPoints.numerator == 16) // 1+2+7+3+3 (excluding worst: 14)
+    // With A7 point splitting applied:
+    // A: (1+2)/2, (2+3)/2, (3+4)/2, (4+5)/2, (5+6)/2, (1+2)/2 = 3/2, 5/2, 7/2, 9/2, 11/2, 3/2
+    //    Excluding worst (11/2): 3/2 + 5/2 + 7/2 + 9/2 + 3/2 = 27/2 = 13.5
+    // B: 2, 1, (3+4)/2, (4+5)/2, (5+6)/2, (1+2)/2 = 2, 1, 7/2, 9/2, 11/2, 3/2
+    //    Excluding worst (11/2): 2 + 1 + 7/2 + 9/2 + 3/2 = 25/2 = 12.5
+    // C: (1+2)/2, (2+3)/2, 7, 3, 3, 14 = 3/2, 5/2, 7, 3, 3, 14
+    //    Excluding worst (14): 3/2 + 5/2 + 7 + 3 + 3 = 34/2 = 17
+    #expect(scoreA.totalPoints.numerator == 27)
+    #expect(scoreA.totalPoints.denominator == 2)
+    #expect(scoreB.totalPoints.numerator == 25)
+    #expect(scoreB.totalPoints.denominator == 2)
+    #expect(scoreC.totalPoints.numerator == 34)
+    #expect(scoreC.totalPoints.denominator == 2)
     
-    // A8.1 should break the tie between A and B vs C based on best scores
-    // Since C has a worse best score pattern (includes a 7), C should rank lower
-    // But wait, C's best scores are 1,2,3,3,7 vs A/B's 1,2,3,4,5
-    // At first difference: A/B have 4, C has 3 (better), then A/B have 5, C has 7 (worse)
-    // So C should rank lower than A and B
-    let aRank = scoreA.rank!
-    let bRank = scoreB.rank!
-    let cRank = scoreC.rank!
-    
-    // A and B should be tied (same rank or adjacent)
-    // C should rank after A and B
-    #expect(cRank > aRank)
-    #expect(cRank > bRank)
+    // With A7, the boats no longer have identical totals.
+    // Rankings: B (12.5) < A (13.5) < C (17)
+    #expect(scoreB.rank == 1)
+    #expect(scoreA.rank == 2)
+    #expect(scoreC.rank == 3)
 }
 
 // A8.2 - Series Tie Breaking by Last Race
