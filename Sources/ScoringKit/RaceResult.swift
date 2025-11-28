@@ -18,7 +18,11 @@ public enum RaceResult: Codable, Equatable, Sendable, Hashable {
 
     case racing  // Still racing
 
-    public init?(_ value: String) {
+    public enum ParseError: Error {
+        case invalidString(String)
+    }
+    
+    public init(_ value: String) throws {
         switch value.uppercased() {
         case "": self = .racing
         case "DNC": self = .dnc
@@ -38,7 +42,7 @@ public enum RaceResult: Codable, Equatable, Sendable, Hashable {
                 self = .finished(position: position)
             }
             else {
-                return nil
+                throw ParseError.invalidString(value)
             }
         }
     }
@@ -100,7 +104,11 @@ extension RaceResult: CustomStringConvertible {
 
 extension RaceResult: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
-        self = RaceResult(value) ?? .racing
+        do {
+            self = try RaceResult(value)
+        } catch {
+            fatalError("Invalid RaceResult string literal: '\(value)'. Use a valid result code (DNC, DNS, OCS, BFD, SCP, DNF, RAF, DSQ, DNE, DGM, RDG, ZFP), a position number, or an empty string for racing.")
+        }
     }
 }
 

@@ -7,42 +7,46 @@ struct RaceResultTests {
     
     @Suite("String Initializer")
     struct StringInitializerTests {
-        @Test func finished() {
-            #expect(RaceResult("1") == .finished(position: 1))
-            #expect(RaceResult("42") == .finished(position: 42))
-            #expect(RaceResult("999") == .finished(position: 999))
+        @Test func finished() throws {
+            #expect(try RaceResult("1") == .finished(position: 1))
+            #expect(try RaceResult("42") == .finished(position: 42))
+            #expect(try RaceResult("999") == .finished(position: 999))
         }
         
-        @Test func specialCases() {
-            #expect(RaceResult("DNC") == .dnc)
-            #expect(RaceResult("DNS") == .dns)
-            #expect(RaceResult("OCS") == .ocs)
-            #expect(RaceResult("BFD") == .bfd)
-            #expect(RaceResult("SCP") == .scp)
-            #expect(RaceResult("DNF") == .dnf)
-            #expect(RaceResult("RAF") == .raf)
-            #expect(RaceResult("DSQ") == .dsq)
-            #expect(RaceResult("DNE") == .dne)
-            #expect(RaceResult("DGM") == .dgm)
-            #expect(RaceResult("RDG") == .rdg)
-            #expect(RaceResult("ZFP") == .zfp)
-            #expect(RaceResult("") == .racing)
+        @Test func specialCases() throws {
+            #expect(try RaceResult("DNC") == .dnc)
+            #expect(try RaceResult("DNS") == .dns)
+            #expect(try RaceResult("OCS") == .ocs)
+            #expect(try RaceResult("BFD") == .bfd)
+            #expect(try RaceResult("SCP") == .scp)
+            #expect(try RaceResult("DNF") == .dnf)
+            #expect(try RaceResult("RAF") == .raf)
+            #expect(try RaceResult("DSQ") == .dsq)
+            #expect(try RaceResult("DNE") == .dne)
+            #expect(try RaceResult("DGM") == .dgm)
+            #expect(try RaceResult("RDG") == .rdg)
+            #expect(try RaceResult("ZFP") == .zfp)
+            #expect(try RaceResult("") == .racing)
         }
         
-        @Test func caseInsensitive() {
-            #expect(RaceResult("dnc") == .dnc)
-            #expect(RaceResult("Dnc") == .dnc)
-            #expect(RaceResult("dNc") == .dnc)
-            #expect(RaceResult("dnf") == .dnf)
-            #expect(RaceResult("dsq") == .dsq)
+        @Test func caseInsensitive() throws {
+            #expect(try RaceResult("dnc") == .dnc)
+            #expect(try RaceResult("Dnc") == .dnc)
+            #expect(try RaceResult("dNc") == .dnc)
+            #expect(try RaceResult("dnf") == .dnf)
+            #expect(try RaceResult("dsq") == .dsq)
         }
         
         @Test func invalid() {
             // Use an array to avoid string literal initializer
             let invalidStrings = ["INVALID", "XYZ", "abc123"]
             for invalidString in invalidStrings {
-                let result: RaceResult? = RaceResult(invalidString)
-                #expect(result == nil, "\(invalidString) should return nil")
+                do {
+                    _ = try RaceResult(invalidString)
+                    Issue.record("\(invalidString) should throw an error")
+                } catch {
+                    // Expected to throw
+                }
             }
         }
     }
@@ -118,9 +122,6 @@ struct RaceResultTests {
             
             let result3: RaceResult = ""
             #expect(result3 == .racing)
-            
-            let result4: RaceResult = "INVALID"
-            #expect(result4 == .racing) // Falls back to .racing for invalid strings
         }
     }
     
