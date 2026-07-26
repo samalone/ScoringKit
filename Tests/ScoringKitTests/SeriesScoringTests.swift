@@ -664,17 +664,327 @@ struct USSailingAppendixATests {
             let boat1 = Skipper(name: "Boat 1")
             let boat2 = Skipper(name: "Boat 2")
             let boat3 = Skipper(name: "Boat 3")
-            
+
             let scoring = SeriesScoring(scoringSystem: .lowPoint, longSeries: false, qualify: .none, exclude: .none)
             let races = [
                 TestRace(results: [boat1: 1, boat2: 1, boat3: 1])
             ]
             let scores = scoring.calculateScores(races)
-            
+
             // (1+2+3)/3 = 6/3
             for score in scores {
                 #expect(score.raceScores[0].points.numerator == 6)
                 #expect(score.raceScores[0].points.denominator == 3)
+            }
+        }
+
+        // A7 is not scoped to the low point system. US Sailing's Scoring a Long
+        // Series X4 scores race ties under A7 for the high point percentage
+        // system too, so every system splits the tied places.
+
+        @Test func highPointTwoBoatsTiedForFirst() {
+            let boatA = Skipper(name: "Boat A")
+            let boatB = Skipper(name: "Boat B")
+            let boatC = Skipper(name: "Boat C")
+            let boatD = Skipper(name: "Boat D")
+
+            let scoring = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: false, qualify: .none, exclude: .none)
+            let races = [
+                TestRace(results: [boatA: 1, boatB: 1, boatC: 3, boatD: 4])
+            ]
+            let scores = scoring.calculateScores(races)
+
+            let scoreA = scores.first(where: { $0.competitor == boatA })!
+            let scoreB = scores.first(where: { $0.competitor == boatB })!
+            let scoreC = scores.first(where: { $0.competitor == boatC })!
+            let scoreD = scores.first(where: { $0.competitor == boatD })!
+
+            #expect(scoreA.raceScores[0].status == .tied)
+            #expect(scoreB.raceScores[0].status == .tied)
+
+            // N = 4, so first scores 4 and second scores 3: (4 + 3) / 2 = 3.5 of 4.
+            #expect(percent(scoreA.raceScores[0].points) == 87.5)
+            #expect(percent(scoreB.raceScores[0].points) == 87.5)
+
+            // The next boat takes third place, not second: 2 of 4.
+            #expect(percent(scoreC.raceScores[0].points) == 50.0)
+            #expect(percent(scoreD.raceScores[0].points) == 25.0)
+
+            #expect(percent(scoreA.totalPoints) == 87.5)
+            #expect(percent(scoreC.totalPoints) == 50.0)
+        }
+
+        @Test func highPointThreeWayTie() {
+            let boat1 = Skipper(name: "Boat 1")
+            let boat2 = Skipper(name: "Boat 2")
+            let boat3 = Skipper(name: "Boat 3")
+            let boat4 = Skipper(name: "Boat 4")
+
+            let scoring = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: false, qualify: .none, exclude: .none)
+            let races = [
+                TestRace(results: [boat1: 1, boat2: 2, boat3: 2, boat4: 2])
+            ]
+            let scores = scoring.calculateScores(races)
+
+            let score1 = scores.first(where: { $0.competitor == boat1 })!
+            let score2 = scores.first(where: { $0.competitor == boat2 })!
+            let score3 = scores.first(where: { $0.competitor == boat3 })!
+            let score4 = scores.first(where: { $0.competitor == boat4 })!
+
+            #expect(percent(score1.raceScores[0].points) == 100.0)
+
+            // Places 2, 3 and 4 score 3, 2 and 1 of 4: (3 + 2 + 1) / 3 = 2 of 4.
+            #expect(percent(score2.raceScores[0].points) == 50.0)
+            #expect(percent(score3.raceScores[0].points) == 50.0)
+            #expect(percent(score4.raceScores[0].points) == 50.0)
+        }
+
+        /// The high point series total is earned/possible, so a race whose points
+        /// turned fractional must not end up weighted differently from the rest.
+        @Test func highPointSeriesMixingTiedAndUntiedRaces() {
+            let boatA = Skipper(name: "Boat A")
+            let boatB = Skipper(name: "Boat B")
+            let boatC = Skipper(name: "Boat C")
+            let boatD = Skipper(name: "Boat D")
+
+            let scoring = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: false, qualify: .none, exclude: .none)
+            let races = [
+                TestRace(results: [boatA: 1, boatB: 1, boatC: 3, boatD: 4]),
+                TestRace(results: [boatA: 1, boatB: 2, boatC: 3, boatD: 4])
+            ]
+            let scores = scoring.calculateScores(races)
+
+            let scoreA = scores.first(where: { $0.competitor == boatA })!
+            let scoreB = scores.first(where: { $0.competitor == boatB })!
+            let scoreC = scores.first(where: { $0.competitor == boatC })!
+
+            // A: 3.5 of 4 then 4 of 4 = 7.5 of 8 = 93.75%
+            #expect(percent(scoreA.totalPoints) == 93.75)
+            // B: 3.5 of 4 then 3 of 4 = 6.5 of 8 = 81.25%
+            #expect(percent(scoreB.totalPoints) == 81.25)
+            // C: 2 of 4 twice = 4 of 8 = 50%
+            #expect(percent(scoreC.totalPoints) == 50.0)
+
+            #expect(scoreA.rank == 1)
+            #expect(scoreB.rank == 2)
+            #expect(scoreC.rank == 3)
+        }
+
+        /// Races have different fleet sizes, and a boat that misses a race is
+        /// scored only on the races she sails, so the tie must not disturb
+        /// either weighting.
+        @Test func highPointTieWithVaryingFleetSizes() {
+            let boatA = Skipper(name: "Boat A")
+            let boatB = Skipper(name: "Boat B")
+            let boatC = Skipper(name: "Boat C")
+            let boatD = Skipper(name: "Boat D")
+
+            let scoring = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: false, qualify: .none, exclude: .none)
+            let races = [
+                // N = 4, A and B tied for first.
+                TestRace(results: [boatA: 1, boatB: 1, boatC: 3, boatD: 4]),
+                // N = 3, no tie, D did not come to the starting area.
+                TestRace(results: [boatA: 2, boatB: 1, boatC: 3, boatD: .dnc])
+            ]
+            let scores = scoring.calculateScores(races)
+
+            let scoreA = scores.first(where: { $0.competitor == boatA })!
+            let scoreD = scores.first(where: { $0.competitor == boatD })!
+
+            // A: 3.5 of 4 then 2 of 3 = 5.5 of 7
+            #expect(abs(percent(scoreA.totalPoints) - 100.0 * 5.5 / 7.0) < 1e-9)
+            // D: 1 of 4 in the only race she sailed
+            #expect(percent(scoreD.totalPoints) == 25.0)
+        }
+
+        @Test func lowPointAveragedTie() {
+            let boatA = Skipper(name: "Boat A")
+            let boatB = Skipper(name: "Boat B")
+            let boatC = Skipper(name: "Boat C")
+            let boatD = Skipper(name: "Boat D")
+
+            let scoring = SeriesScoring(scoringSystem: .lowPointAveraged, longSeries: false, qualify: .none, exclude: .none)
+            let races = [
+                TestRace(results: [boatC: 1, boatD: 2, boatA: 3, boatB: 3])
+            ]
+            let scores = scoring.calculateScores(races)
+
+            let scoreA = scores.first(where: { $0.competitor == boatA })!
+            let scoreB = scores.first(where: { $0.competitor == boatB })!
+            let scoreC = scores.first(where: { $0.competitor == boatC })!
+            let scoreD = scores.first(where: { $0.competitor == boatD })!
+
+            #expect(scoreA.raceScores[0].status == .tied)
+            #expect(scoreB.raceScores[0].status == .tied)
+
+            // (3 + 4) / 2 = 3.5
+            #expect(value(scoreA.raceScores[0].points) == 3.5)
+            #expect(value(scoreB.raceScores[0].points) == 3.5)
+            #expect(value(scoreC.raceScores[0].points) == 1.0)
+            #expect(value(scoreD.raceScores[0].points) == 2.0)
+
+            // The series score is the average of the race scores.
+            #expect(value(scoreA.totalPoints) == 3.5)
+            #expect(value(scoreC.totalPoints) == 1.0)
+        }
+
+        /// The averaged system divides by the number of races counted, so a race
+        /// with split points still has to count as exactly one race.
+        @Test func lowPointAveragedSeriesMixingTiedAndUntiedRaces() {
+            let boatA = Skipper(name: "Boat A")
+            let boatB = Skipper(name: "Boat B")
+            let boatC = Skipper(name: "Boat C")
+            let boatD = Skipper(name: "Boat D")
+
+            let scoring = SeriesScoring(scoringSystem: .lowPointAveraged, longSeries: false, qualify: .none, exclude: .none)
+            let races = [
+                TestRace(results: [boatC: 1, boatD: 2, boatA: 3, boatB: 3]),
+                TestRace(results: [boatA: 1, boatB: 2, boatC: 3, boatD: 4])
+            ]
+            let scores = scoring.calculateScores(races)
+
+            let scoreA = scores.first(where: { $0.competitor == boatA })!
+            let scoreB = scores.first(where: { $0.competitor == boatB })!
+            let scoreC = scores.first(where: { $0.competitor == boatC })!
+
+            // A: (3.5 + 1) / 2 = 2.25
+            #expect(value(scoreA.totalPoints) == 2.25)
+            // B: (3.5 + 2) / 2 = 2.75
+            #expect(value(scoreB.totalPoints) == 2.75)
+            // C: (1 + 3) / 2 = 2
+            #expect(value(scoreC.totalPoints) == 2.0)
+
+            // Lowest average wins: C (2), A (2.25), B (2.75)
+            #expect(scoreC.rank == 1)
+            #expect(scoreA.rank == 2)
+            #expect(scoreB.rank == 3)
+        }
+
+        /// A boat that misses a race is scored on the races she sails, so a DNC
+        /// must stay out of the average even when another race has split points.
+        @Test func lowPointAveragedTieWithDNC() {
+            let boatA = Skipper(name: "Boat A")
+            let boatB = Skipper(name: "Boat B")
+            let boatC = Skipper(name: "Boat C")
+
+            let scoring = SeriesScoring(scoringSystem: .lowPointAveraged, longSeries: false, qualify: .none, exclude: .none)
+            let races = [
+                TestRace(results: [boatA: 1, boatB: 1, boatC: 3]),
+                TestRace(results: [boatA: 2, boatB: 1, boatC: .dnc])
+            ]
+            let scores = scoring.calculateScores(races)
+
+            let scoreA = scores.first(where: { $0.competitor == boatA })!
+            let scoreC = scores.first(where: { $0.competitor == boatC })!
+
+            // A: ((1 + 2) / 2 + 2) / 2 = 1.75
+            #expect(value(scoreA.totalPoints) == 1.75)
+            // C: her one race, 3
+            #expect(value(scoreC.totalPoints) == 3.0)
+        }
+
+        /// An excluded race drops out of both the earned and the possible points,
+        /// which has to stay true of a race whose points a tie made fractional.
+        @Test func highPointTieWithAThrowout() {
+            let boatA = Skipper(name: "Boat A")
+            let boatB = Skipper(name: "Boat B")
+            let boatC = Skipper(name: "Boat C")
+            let boatD = Skipper(name: "Boat D")
+
+            let scoring = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: false, qualify: .none, exclude: .upTo(n: 1))
+            let races = [
+                TestRace(results: [boatA: 1, boatB: 1, boatC: 3, boatD: 4]),
+                TestRace(results: [boatA: 4, boatB: 2, boatC: 3, boatD: 1]),
+                TestRace(results: [boatA: 1, boatB: 2, boatC: 3, boatD: 4])
+            ]
+            let scores = scoring.calculateScores(races)
+
+            let scoreA = scores.first(where: { $0.competitor == boatA })!
+            let scoreB = scores.first(where: { $0.competitor == boatB })!
+
+            // A throws out her 1 of 4 and keeps 3.5 of 4 and 4 of 4 = 7.5 of 8
+            #expect(scoreA.raceScores[1].excluded)
+            #expect(percent(scoreA.totalPoints) == 93.75)
+            // B throws out a 3 of 4 and keeps 3.5 of 4 and 3 of 4 = 6.5 of 8
+            #expect(percent(scoreB.totalPoints) == 81.25)
+        }
+
+        /// Ties of different sizes in the same series have to share one common
+        /// scale, or the races they belong to carry different weight.
+        @Test func highPointTiesOfDifferentSizes() {
+            let boatA = Skipper(name: "Boat A")
+            let boatB = Skipper(name: "Boat B")
+            let boatC = Skipper(name: "Boat C")
+            let boatD = Skipper(name: "Boat D")
+
+            let scoring = SeriesScoring(scoringSystem: .highPointPercentage, longSeries: false, qualify: .none, exclude: .none)
+            let races = [
+                // A and B tie for first: (4 + 3) / 2 = 3.5 of 4
+                TestRace(results: [boatA: 1, boatB: 1, boatC: 3, boatD: 4]),
+                // B, C and D tie for second: (3 + 2 + 1) / 3 = 2 of 4
+                TestRace(results: [boatA: 1, boatB: 2, boatC: 2, boatD: 2])
+            ]
+            let scores = scoring.calculateScores(races)
+
+            let scoreA = scores.first(where: { $0.competitor == boatA })!
+            let scoreB = scores.first(where: { $0.competitor == boatB })!
+
+            // A: 3.5 of 4 then 4 of 4 = 7.5 of 8 = 93.75%
+            #expect(percent(scoreA.totalPoints) == 93.75)
+            // B: 3.5 of 4 then 2 of 4 = 5.5 of 8 = 68.75%
+            #expect(percent(scoreB.totalPoints) == 68.75)
+        }
+
+        /// Scoring is driven by dictionaries, and A7 splitting has to be blind to
+        /// the order they hand their contents over in.
+        ///
+        /// Repeating the calculation is a weak check on its own — Swift seeds its
+        /// hashing per process, so the same competitors rebuild the same iteration
+        /// order every time within one test run — so the values are pinned by hand
+        /// as well. Between them they catch an order-dependent split (across runs)
+        /// and a wrong one (within a run).
+        @Test func tieSplittingIsDeterministic() {
+            let skipperResults: [Skipper: [RaceResult]] = [
+                chrisCrane: [1, 1, 1, 4, 4, 1],
+                sam: [1, 4, 5, 3, 3, 2],
+                chrisLee: [8, 8, 3, 2, 1, 3],
+                jeff: [3, 3, 2, 5, 6, 6],
+                george: [4, 2, 4, 6, 5, 8],
+                daveLeblanc: [6, 5, 6, 7, 2, 5],
+                rich: [5, 7, 10, 1, 8, 7],
+                zack: [7, 6, 7, 8, 7, 4],
+                bob: [9, 10, 8, 9, 9, 9],
+                mitch: [10, 9, 9, 10, 10, "DNF"],
+            ]
+            let races = invert(skipperResults: skipperResults)
+
+            func totals(_ scoring: SeriesScoring) -> [Skipper: Double] {
+                Dictionary(uniqueKeysWithValues: scoring.calculateScores(races).map {
+                    ($0.competitor, value($0.totalPoints))
+                })
+            }
+
+            // chrisCrane sailed 1, 1, 1, 4, 4, 1, and shares that first race with
+            // sam. Ten boats came out for all six races, so N is 10 throughout.
+            let chrisCraneTotal: [ScoringSystem: Double] = [
+                // (1 + 2) / 2 + 1 + 1 + 4 + 4 + 1
+                .lowPoint: 12.5,
+                // ...over six races
+                .lowPointAveraged: 12.5 / 6.0,
+                // (0 + 30) / 2 + 0 + 0 + 80 + 80 + 0, in tenths of a point
+                .bonusPoint: 175.0,
+                // (10 + 9) / 2 + 10 + 10 + 7 + 7 + 10, out of 6 races of 10 boats
+                .highPointPercentage: 53.5 / 60.0,
+            ]
+
+            for system in ScoringSystem.allCases {
+                let scoring = SeriesScoring(scoringSystem: system, longSeries: false, qualify: .none, exclude: .none)
+                let expected = totals(scoring)
+                #expect(abs(expected[chrisCrane]! - chrisCraneTotal[system]!) < 1e-9,
+                        "\(system.name) total for chrisCrane")
+                for _ in 0 ..< 100 {
+                    #expect(totals(scoring) == expected)
+                }
             }
         }
     }

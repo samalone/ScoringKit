@@ -47,6 +47,46 @@ public enum ScoringSystem: String, CaseIterable, Codable, Sendable {
         }
     }
     
+    /// The points a boat earns for finishing in `place`, before any A7 adjustment
+    /// for a tie. A7 needs the points for the places below a tied place, which no
+    /// boat necessarily finished in, so this is kept separate from `computeScore`.
+    func points(forFinishingPlace place: Int, competitorsInStartingArea: Int) -> Points {
+        switch self {
+        case .lowPoint, .lowPointAveraged:
+            return Points(place)
+        case .bonusPoint:
+            return bonusPoints(position: place)
+        case .highPointPercentage:
+            // Define 'N' to be the number of boats that compete in a particular race. Each boat finishing that race and not thereafter retiring or being disqualified will be scored as follows:
+            // Finishing place          Score
+            // First                    N
+            // Second                   N - 1
+            // Third                    N - 2
+            // Fourth                   N - 3
+            // Each place thereafter    Subtract 1 point
+            // A place past the back of the fleet is not a real place, but A7 can
+            // ask for one when the results are inconsistent. Score it zero rather
+            // than letting a boat earn negative points.
+            return Points(numerator: max(0, competitorsInStartingArea - place + 1),
+                          denominator: competitorsInStartingArea)
+        }
+    }
+
+    /// Whether a series total is built by accumulating numerators and denominators
+    /// — earned/possible for high point, total/races for the averaged system —
+    /// rather than by adding the race scores as proper fractions.
+    ///
+    /// An accumulated total only comes out right when every race is written over
+    /// the same scale, which is what A7 tie splitting has to preserve.
+    var accumulatesTotals: Bool {
+        switch self {
+        case .lowPoint, .bonusPoint:
+            return false
+        case .lowPointAveraged, .highPointPercentage:
+            return true
+        }
+    }
+
     func computeScore(result: RaceResult,
                       isLongSeries: Bool,
                       competitorsInStartingArea: Int,
@@ -55,7 +95,7 @@ public enum ScoringSystem: String, CaseIterable, Codable, Sendable {
         case .lowPoint:
             switch result {
             case .finished(let position):
-                return Points(position)
+                return points(forFinishingPlace: position, competitorsInStartingArea: competitorsInStartingArea)
             case .dnc:
                 return Points(competitorsInSeries + 1)
             default:
@@ -64,7 +104,7 @@ public enum ScoringSystem: String, CaseIterable, Codable, Sendable {
         case .bonusPoint:
             switch result {
             case .finished(let position):
-                return bonusPoints(position: position)
+                return points(forFinishingPlace: position, competitorsInStartingArea: competitorsInStartingArea)
             case .dnc:
                 return bonusPoints(position: competitorsInSeries + 1)
             default:
@@ -73,7 +113,7 @@ public enum ScoringSystem: String, CaseIterable, Codable, Sendable {
         case .lowPointAveraged:
             switch result {
             case .finished(let position):
-                return Points(position)
+                return points(forFinishingPlace: position, competitorsInStartingArea: competitorsInStartingArea)
             case .dnc:
                 return Points()
             default:
@@ -82,14 +122,7 @@ public enum ScoringSystem: String, CaseIterable, Codable, Sendable {
         case .highPointPercentage:
             switch result {
             case .finished(let position):
-                // Define 'N' to be the number of boats that compete in a particular race. Each boat finishing that race and not thereafter retiring or being disqualified will be scored as follows:
-                // Finishing place          Score
-                // First                    N
-                // Second                   N - 1
-                // Third                    N - 2
-                // Fourth                   N - 3
-                // Each place thereafter    Subtract 1 point
-                return Points(numerator: competitorsInStartingArea - position + 1, denominator: competitorsInStartingArea)
+                return points(forFinishingPlace: position, competitorsInStartingArea: competitorsInStartingArea)
             case .dnc:
                 // Her series score is based only on the races in which she competes, and therefore, provided she sails in sufficient races to qualify for the series, she is not placed at a disadvantage it she misses some races.
                 return Points()
@@ -220,7 +253,10 @@ public enum ScoringSystem: String, CaseIterable, Codable, Sendable {
             case .dnc:
                 return score.result.description
             default:
-                return score.result.description + (debug ? " \(score.points.numerator)" : "")
+                // The value, not the numerator: A7 tie splitting elsewhere in the
+                // series can leave this race over a denominator greater than one,
+                // and a bare numerator would read as twice the penalty it is.
+                return score.result.description + (debug ? " \(describe(score.points))" : "")
             }
         case .highPointPercentage:
             switch score.result {

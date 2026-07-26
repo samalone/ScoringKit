@@ -58,6 +58,21 @@ extension Collection {
     }
 }
 
+/// The numeric value of a Points fraction.
+///
+/// A7 tie splitting can leave the same value written with different numerators
+/// and denominators (7/2 and 14/4 are both 3.5), so tests that care about the
+/// value rather than its representation compare through this.
+func value(_ points: Points) -> Double {
+    guard points.denominator != 0 else { return 0 }
+    return Double(points.numerator) / Double(points.denominator)
+}
+
+/// A high point percentage score, 0...100.
+func percent(_ points: Points) -> Double {
+    100.0 * value(points)
+}
+
 func invert(skipperResults: [Skipper: [RaceResult]]) -> [TestRace] {
     guard let raceCount = skipperResults.values.map({$0.count}).max() else {
         return []
