@@ -44,6 +44,12 @@ public struct Points {
         lhs.denominator += rhs.denominator
     }
     
+    /// Rewrites the fraction over a larger denominator without changing its value.
+    /// A7 tie splitting uses this to put every race of a series on one common scale.
+    func scaled(by factor: Int) -> Points {
+        return Points(numerator: numerator * factor, denominator: denominator * factor)
+    }
+
     /// Adds points as proper fractions: a/b + c/d = (ad + bc) / bd
     /// Used by lowPoint/bonusPoint when A7 tie splitting creates fractional scores.
     func addingFraction(_ other: Points) -> Points {

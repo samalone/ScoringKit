@@ -9,6 +9,19 @@
 import Foundation
 import HTMLString
 
+private func greatestCommonDivisor(_ a: Int, _ b: Int) -> Int {
+    var (a, b) = (abs(a), abs(b))
+    while b != 0 {
+        (a, b) = (b, a % b)
+    }
+    return a
+}
+
+private func leastCommonMultiple(_ a: Int, _ b: Int) -> Int {
+    let divisor = greatestCommonDivisor(a, b)
+    return (divisor == 0) ? 0 : abs(a / divisor * b)
+}
+
 public struct SeriesScoring: Codable, Sendable {
     public var scoringSystem: ScoringSystem
     // The RRS section A9 specifies slighly different handling
@@ -77,61 +90,68 @@ public struct SeriesScoring: Codable, Sendable {
         }
     }
     
-    /// Adjusts points for tied boats per US Sailing A7 rule.
+    /// Adjusts points for tied boats per the RRS A7 rule.
     /// "If boats are tied at the finishing line... the points for the place for which the boats
     /// have tied and for the place(s) immediately below shall be added together and divided equally."
-    func adjustPointsForTies<CompetitorType: Competitor>(scores: [CompetitorType: [RaceScore]]) {
-        guard scores.count > 0 else { return }
-        guard let raceCount = scores.randomElement()?.value.count, raceCount > 0 else { return }
-        
-        // Only lowPoint and bonusPoint systems split points for ties
-        guard scoringSystem == .lowPoint || scoringSystem == .bonusPoint else { return }
-        
-        for raceIndex in 0 ..< raceCount {
-            // Group finished RaceScores by their position
-            var positionGroups: [Int: [RaceScore]] = [:]
+    ///
+    /// A7 is written generally and is not scoped to the low point system — A4 is what
+    /// makes low point the default system, and A7 sits alongside it. US Sailing's
+    /// Scoring a Long Series X4, the page that publishes the high point percentage
+    /// system, likewise scores race ties under A7. So all four systems split points.
+    ///
+    /// Splitting a place makes a race score fractional, and the systems carry that
+    /// differently. Low point and bonus point total a series by adding proper
+    /// fractions, so a race can be left over whatever denominator the split needs.
+    /// The averaged and high point systems instead accumulate numerators and
+    /// denominators — total/races and earned/possible — which only comes out right
+    /// when every race is written over the same scale: 7/8 + 4/4 is 11/12, not the
+    /// 15/16 it should be. Those two therefore get every race of the series scaled
+    /// by a common multiple of the tie sizes, so a race with split points still
+    /// weighs exactly one race.
+    func adjustPointsForTies<RaceType: Race>(races: [RaceType], scores: [RaceType.CompetitorType: [RaceScore]]) {
+        guard !races.isEmpty, !scores.isEmpty else { return }
+
+        // Collect the ties race by race: the place the boats tied for, and their scores.
+        let ties: [[(place: Int, tiedScores: [RaceScore])]] = races.indices.map { raceIndex in
+            var placeGroups: [Int: [RaceScore]] = [:]
             for raceScores in scores.values {
                 let raceScore = raceScores[raceIndex]
-                guard case let .finished(position) = raceScore.result else { continue }
-                positionGroups[position, default: []].append(raceScore)
+                guard case let .finished(place) = raceScore.result else { continue }
+                placeGroups[place, default: []].append(raceScore)
             }
-            
-            // For each group with more than one boat (a tie), calculate split points
-            for (position, tiedScores) in positionGroups {
-                guard tiedScores.count > 1 else { continue }
-                
-                // Calculate sum of points for positions: position, position+1, ..., position+count-1
-                var sumNumerator = 0
-                let count = tiedScores.count
-                
-                if scoringSystem == .lowPoint {
-                    // Low point: positions are just the position numbers
-                    // Sum = position + (position+1) + ... + (position+count-1)
-                    for i in 0 ..< count {
-                        sumNumerator += position + i
-                    }
-                } else {
-                    // Bonus point: need to look up bonus points for each position
-                    // Bonus points are stored as integers * 10 (e.g., 5.7 = 57)
-                    for i in 0 ..< count {
-                        let pos = position + i
-                        let bonusPoints: Int
-                        switch pos {
-                        case 1: bonusPoints = 0
-                        case 2: bonusPoints = 30
-                        case 3: bonusPoints = 57
-                        case 4: bonusPoints = 80
-                        case 5: bonusPoints = 100
-                        case 6: bonusPoints = 117
-                        case 7: bonusPoints = 130
-                        default: bonusPoints = 130 + (10 * (pos - 7))
-                        }
-                        sumNumerator += bonusPoints
-                    }
+            return placeGroups.filter({ $0.value.count > 1 })
+                .map({ (place: $0.key, tiedScores: $0.value) })
+        }
+
+        // The common scale for the accumulating systems. Least common multiple is
+        // commutative, so this does not depend on the order the ties were collected.
+        let scale = scoringSystem.accumulatesTotals
+            ? ties.joined().reduce(1, { leastCommonMultiple($0, $1.tiedScores.count) })
+            : 1
+
+        for raceIndex in races.indices {
+            let competitorsInStartingArea = races[raceIndex].competitorsInStartingArea
+
+            if scale > 1 {
+                for raceScores in scores.values {
+                    raceScores[raceIndex].points = raceScores[raceIndex].points.scaled(by: scale)
                 }
-                
-                // Assign split points to all tied boats
-                let splitPoints = Points(numerator: sumNumerator, denominator: count)
+            }
+
+            for (place, tiedScores) in ties[raceIndex] {
+                // Add together the points for the tied place and the places
+                // immediately below it. They share a denominator, so the sum does too.
+                let count = tiedScores.count
+                let total = (place ..< (place + count))
+                    .map({ scoringSystem.points(forFinishingPlace: $0, competitorsInStartingArea: competitorsInStartingArea) })
+                    .reduce(Points(), { $0.addingFraction($1) })
+
+                // Divide them equally. Low point and bonus point keep the split over
+                // its own denominator; the accumulating systems restate it over the
+                // series scale, which is always a multiple of the number tied.
+                let factor = scoringSystem.accumulatesTotals ? scale / count : 1
+                let splitPoints = Points(numerator: total.numerator * factor,
+                                         denominator: total.denominator * count * factor)
                 for raceScore in tiedScores {
                     raceScore.points = splitPoints
                 }
@@ -183,8 +203,8 @@ public struct SeriesScoring: Codable, Sendable {
         let competitors = collectCompetitors(races)
         let competitorRaceScores = collectRaceScores(races: races, competitorsInSeries: competitors.count)
         
-        // Adjust points for ties per US Sailing A7 rule.
-        adjustPointsForTies(scores: competitorRaceScores)
+        // Adjust points for ties per the RRS A7 rule.
+        adjustPointsForTies(races: races, scores: competitorRaceScores)
         
         // Go through the results of each race, marking any ties or obvious scoring errors.
         tagResultStatus(scores: competitorRaceScores)
@@ -194,15 +214,13 @@ public struct SeriesScoring: Codable, Sendable {
         var scores: [SeriesScore<RaceType.CompetitorType>] = []
         for competitor in competitors {
             let raceScores = competitorRaceScores[competitor]!
-            // For lowPoint/bonusPoint, use proper fraction addition (for A7 tie splitting).
-            // For highPointPercentage, use accumulation addition (earned/possible).
-            let totalPoints: Points
-            switch scoringSystem {
-            case .lowPoint, .bonusPoint:
-                totalPoints = raceScores.map({$0.excluded ? Points() : $0.points}).reduce(Points()) { $0.addingFraction($1) }
-            default:
-                totalPoints = raceScores.map({$0.excluded ? Points() : $0.points}).reduce(Points(), +)
-            }
+            // Low point and bonus point add their race scores as proper fractions
+            // (which A7 tie splitting can make of them). The averaged and high point
+            // systems accumulate instead, to get total/races and earned/possible.
+            let countedPoints = raceScores.map({$0.excluded ? Points() : $0.points})
+            let totalPoints = scoringSystem.accumulatesTotals
+                ? countedPoints.reduce(Points(), +)
+                : countedPoints.reduce(Points()) { $0.addingFraction($1) }
             let sailed: Int = raceScores.map({($0.result == .dnc) ? 0 : 1}).reduce(0, +)
             let qualified = (sailed >= racesToQualify)
             scores.append(SeriesScore(competitor: competitor, racesSailed: sailed, totalPoints: totalPoints, qualified: qualified, raceScores: raceScores))

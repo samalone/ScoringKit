@@ -111,8 +111,9 @@ score is excluded instead.
 - **A4 / A9** — race scores, and the long-series vs. regatta treatment of boats
   that started but did not finish. Set `longSeries` accordingly.
 - **A7** — boats tied at the finishing line share the points for their place and
-  the places below. (Not applied under high point percentage, where a shared
-  place simply earns the same score.)
+  the places below. A7 is not scoped to the low point system, so all four
+  systems split: two boats tied for first in a fleet of four score 3.5 points
+  under low point, and 3.5 of 4 — 87.5% — under high point percentage.
 - **A8.1, A8.2** — series ties are broken on best-to-worst race scores, then on
   the last race and backwards.
 - **A2** — worst scores excluded, earliest race first among equals.
@@ -138,13 +139,16 @@ struct CrewedRace: Race {
     let competitorsInStartingArea: Int  // ...but N is the number of boats
 }
 
-// Three boats. Ana and Ben win together; both score 3/3, not 3/6.
+// Three boats. Ana and Ben win together; their score is out of 3, not 6.
 let race = CrewedRace(results: [ana: 1, ben: 1, cy: 2, dee: 2, eli: 3, fay: 3],
                       competitorsInStartingArea: 3)
 ```
 
-Because high point percentage doesn't split points for a shared place, every
-sailor aboard earns exactly their boat's score, however many of them there are.
+**Known limitation.** ScoringKit sees only the finishing places, so it cannot yet
+tell a boat's crew — one entry at one place — from two boats genuinely tied at
+that place. It treats both as a tie and applies A7, which means a crew of three
+currently scores worse than a crew of two aboard the same boat. Giving a `Race`
+a way to say which competitors share an entry is the fix, and is still to come.
 
 ## Rendering results
 
