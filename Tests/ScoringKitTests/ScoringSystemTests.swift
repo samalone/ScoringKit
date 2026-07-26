@@ -309,7 +309,9 @@ struct ScoringSystemTests {
             #expect(system.describe(score: RaceScore(result: .finished(position: 3), points: Points(3))) == "3")
             #expect(system.describe(score: RaceScore(result: .dnc, points: Points())) == "DNC")
             #expect(system.describe(score: RaceScore(result: .dnf, points: Points(10))) == "DNF")
-            #expect(system.describe(score: RaceScore(result: .dnf, points: Points(10)), debug: true) == "DNF 10")
+            #expect(system.describe(score: RaceScore(result: .dnf, points: Points(10)), debug: true) == "DNF 10.00")
+            // The same penalty over the scale a tie elsewhere in the series imposes.
+            #expect(system.describe(score: RaceScore(result: .dnf, points: Points(numerator: 20, denominator: 2)), debug: true) == "DNF 10.00")
         }
         
         @Test func highPointPercentage() {

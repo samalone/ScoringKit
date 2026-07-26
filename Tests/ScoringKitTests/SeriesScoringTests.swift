@@ -935,8 +935,14 @@ struct USSailingAppendixATests {
             #expect(percent(scoreB.totalPoints) == 68.75)
         }
 
-        /// Scoring is driven by dictionaries, whose iteration order varies from
-        /// run to run. Splitting points must not depend on that order.
+        /// Scoring is driven by dictionaries, and A7 splitting has to be blind to
+        /// the order they hand their contents over in.
+        ///
+        /// Repeating the calculation is a weak check on its own — Swift seeds its
+        /// hashing per process, so the same competitors rebuild the same iteration
+        /// order every time within one test run — so the values are pinned by hand
+        /// as well. Between them they catch an order-dependent split (across runs)
+        /// and a wrong one (within a run).
         @Test func tieSplittingIsDeterministic() {
             let skipperResults: [Skipper: [RaceResult]] = [
                 chrisCrane: [1, 1, 1, 4, 4, 1],
@@ -958,9 +964,24 @@ struct USSailingAppendixATests {
                 })
             }
 
+            // chrisCrane sailed 1, 1, 1, 4, 4, 1, and shares that first race with
+            // sam. Ten boats came out for all six races, so N is 10 throughout.
+            let chrisCraneTotal: [ScoringSystem: Double] = [
+                // (1 + 2) / 2 + 1 + 1 + 4 + 4 + 1
+                .lowPoint: 12.5,
+                // ...over six races
+                .lowPointAveraged: 12.5 / 6.0,
+                // (0 + 30) / 2 + 0 + 0 + 80 + 80 + 0, in tenths of a point
+                .bonusPoint: 175.0,
+                // (10 + 9) / 2 + 10 + 10 + 7 + 7 + 10, out of 6 races of 10 boats
+                .highPointPercentage: 53.5 / 60.0,
+            ]
+
             for system in ScoringSystem.allCases {
                 let scoring = SeriesScoring(scoringSystem: system, longSeries: false, qualify: .none, exclude: .none)
                 let expected = totals(scoring)
+                #expect(abs(expected[chrisCrane]! - chrisCraneTotal[system]!) < 1e-9,
+                        "\(system.name) total for chrisCrane")
                 for _ in 0 ..< 100 {
                     #expect(totals(scoring) == expected)
                 }

@@ -253,7 +253,10 @@ public enum ScoringSystem: String, CaseIterable, Codable, Sendable {
             case .dnc:
                 return score.result.description
             default:
-                return score.result.description + (debug ? " \(score.points.numerator)" : "")
+                // The value, not the numerator: A7 tie splitting elsewhere in the
+                // series can leave this race over a denominator greater than one,
+                // and a bare numerator would read as twice the penalty it is.
+                return score.result.description + (debug ? " \(describe(score.points))" : "")
             }
         case .highPointPercentage:
             switch score.result {

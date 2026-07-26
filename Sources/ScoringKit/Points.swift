@@ -13,6 +13,13 @@ import Foundation
 ///
 /// Note that we intentionally do no make Points Equatable or Comparable, because
 /// the meaning of equality and comparison depends on the scoring system.
+///
+/// The fraction is not kept in lowest terms, and under the low point averaged and
+/// high point percentage systems a series containing an A7 tie carries a scale
+/// factor through every race of that series, so that each race keeps equal weight
+/// in the total. A high point race in a fleet of four is then 8/8 rather than 4/4.
+/// Read the value, or hand it to `ScoringSystem.describe(_:)`; do not read the
+/// denominator as the size of the fleet.
 public struct Points {
     public var numerator: Int
     public var denominator: Int

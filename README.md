@@ -112,8 +112,8 @@ score is excluded instead.
   that started but did not finish. Set `longSeries` accordingly.
 - **A7** — boats tied at the finishing line share the points for their place and
   the places below. A7 is not scoped to the low point system, so all four
-  systems split: two boats tied for first in a fleet of four score 3.5 points
-  under low point, and 3.5 of 4 — 87.5% — under high point percentage.
+  systems split: two boats tied for first in a fleet of four take 1.5 points
+  each under low point, and 3.5 of 4 — 87.5% — under high point percentage.
 - **A8.1, A8.2** — series ties are broken on best-to-worst race scores, then on
   the last race and backwards.
 - **A2** — worst scores excluded, earliest race first among equals.
