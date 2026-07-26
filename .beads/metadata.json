@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "scoringkit",
+  "project_id": "1f9c711d-e4f6-4f56-b7c6-fbfce50c8e43"
+}
