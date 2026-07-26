@@ -111,22 +111,25 @@ public struct SeriesScoring: Codable, Sendable {
     func adjustPointsForTies<RaceType: Race>(races: [RaceType], scores: [RaceType.CompetitorType: [RaceScore]]) {
         guard !races.isEmpty, !scores.isEmpty else { return }
 
-        // Collect the ties race by race: the place the boats tied for, and their scores.
-        let ties: [[(place: Int, tiedScores: [RaceScore])]] = races.indices.map { raceIndex in
-            var placeGroups: [Int: [RaceScore]] = [:]
-            for raceScores in scores.values {
+        // Collect the ties race by race: the place tied for, how many entries tied
+        // for it, and the scores of everyone aboard them. A place holding more than
+        // one entry is a tie; several competitors sharing one entry are not tied,
+        // they sail together, so they take their entry's place undivided.
+        let ties: [[(place: Int, entries: Int, tiedScores: [RaceScore])]] = races.indices.map { raceIndex in
+            var placeGroups: [Int: [RaceType.EntryID: [RaceScore]]] = [:]
+            for (competitor, raceScores) in scores {
                 let raceScore = raceScores[raceIndex]
                 guard case let .finished(place) = raceScore.result else { continue }
-                placeGroups[place, default: []].append(raceScore)
+                placeGroups[place, default: [:]][races[raceIndex].entry(for: competitor), default: []].append(raceScore)
             }
             return placeGroups.filter({ $0.value.count > 1 })
-                .map({ (place: $0.key, tiedScores: $0.value) })
+                .map({ (place: $0.key, entries: $0.value.count, tiedScores: Array($0.value.values.joined())) })
         }
 
         // The common scale for the accumulating systems. Least common multiple is
         // commutative, so this does not depend on the order the ties were collected.
         let scale = scoringSystem.accumulatesTotals
-            ? ties.joined().reduce(1, { leastCommonMultiple($0, $1.tiedScores.count) })
+            ? ties.joined().reduce(1, { leastCommonMultiple($0, $1.entries) })
             : 1
 
         for raceIndex in races.indices {
@@ -138,10 +141,9 @@ public struct SeriesScoring: Codable, Sendable {
                 }
             }
 
-            for (place, tiedScores) in ties[raceIndex] {
+            for (place, count, tiedScores) in ties[raceIndex] {
                 // Add together the points for the tied place and the places
                 // immediately below it. They share a denominator, so the sum does too.
-                let count = tiedScores.count
                 let total = (place ..< (place + count))
                     .map({ scoringSystem.points(forFinishingPlace: $0, competitorsInStartingArea: competitorsInStartingArea) })
                     .reduce(Points(), { $0.addingFraction($1) })
@@ -159,40 +161,63 @@ public struct SeriesScoring: Codable, Sendable {
         }
     }
     
-    func tagResultStatus<CompetitorType: Competitor>(scores: [CompetitorType: [RaceScore]]) {
-        guard scores.count > 0 else { return }
-        guard let raceCount = scores.randomElement()?.value.count, raceCount > 0 else { return }
-        for raceIndex in 0 ..< raceCount {
-            let raceScores = scores.values.compactMap { raceScores -> RaceScore? in
-                    let score = raceScores[raceIndex]
-                    guard case .finished = score.result else { return nil }
-                    return score
+    /// Marks the races where places were duplicated or skipped, and the boats
+    /// that genuinely tied. Entries are what finish, so a boat's crew is one
+    /// finisher however many are aboard, and they are not tied with each other.
+    func tagResultStatus<RaceType: Race>(races: [RaceType], scores: [RaceType.CompetitorType: [RaceScore]]) {
+        guard !races.isEmpty, !scores.isEmpty else { return }
+
+        // An error is a statement about the results, so it stands whatever else
+        // the walk below decides about a place.
+        func mark(_ raceScores: [RaceScore], _ status: ResultStatus) {
+            for raceScore in raceScores where raceScore.status != .error {
+                raceScore.status = status
+            }
+        }
+
+        for raceIndex in races.indices {
+            var scoresByEntry: [RaceType.EntryID: [RaceScore]] = [:]
+            for (competitor, raceScores) in scores {
+                let raceScore = raceScores[raceIndex]
+                guard case .finished = raceScore.result else { continue }
+                scoresByEntry[races[raceIndex].entry(for: competitor), default: []].append(raceScore)
+            }
+
+            var finishers: [(place: Int, raceScores: [RaceScore])] = []
+            for raceScores in scoresByEntry.values {
+                let places = raceScores.compactMap { raceScore -> Int? in
+                    guard case let .finished(place) = raceScore.result else { return nil }
+                    return place
                 }
-                .sorted { a, b in
-                    guard case let .finished(aPosition) = a.result else { return false }
-                    guard case let .finished(bPosition) = b.result else { return true }
-                    return aPosition < bPosition
+                guard let place = places.min() else { continue }
+                // One entry finishes in one place. A crew who were given different
+                // places is as much a scoring error as a place that was skipped.
+                if places.contains(where: { $0 != place }) {
+                    mark(raceScores, .error)
                 }
-            var previousPosition = 0
-            var previousScore: RaceScore? = nil
-            var currentPosition = 1
-            for raceScore in raceScores {
-                guard case let .finished(position) = raceScore.result else { continue }
-                if position > currentPosition {
-                    raceScore.status = .error
+                finishers.append((place: place, raceScores: raceScores))
+            }
+            finishers.sort { $0.place < $1.place }
+
+            var previousPlace = 0
+            var previousFinisher: [RaceScore]? = nil
+            var currentPlace = 1
+            for finisher in finishers {
+                if finisher.place > currentPlace {
+                    mark(finisher.raceScores, .error)
                 }
-                else if position == previousPosition {
-                    if previousScore?.status == .error {
-                        raceScore.status = .error
+                else if finisher.place == previousPlace {
+                    if previousFinisher?.first?.status == .error {
+                        mark(finisher.raceScores, .error)
                     }
                     else {
-                        raceScore.status = .tied
-                        previousScore?.status = .tied
+                        mark(finisher.raceScores, .tied)
+                        mark(previousFinisher ?? [], .tied)
                     }
                 }
-                previousScore = raceScore
-                previousPosition = position
-                currentPosition += 1
+                previousFinisher = finisher.raceScores
+                previousPlace = finisher.place
+                currentPlace += 1
             }
         }
     }
@@ -207,7 +232,7 @@ public struct SeriesScoring: Codable, Sendable {
         adjustPointsForTies(races: races, scores: competitorRaceScores)
         
         // Go through the results of each race, marking any ties or obvious scoring errors.
-        tagResultStatus(scores: competitorRaceScores)
+        tagResultStatus(races: races, scores: competitorRaceScores)
         
         excludeWorstScores(competitorRaceScores: competitorRaceScores, exclusions: exclusions)
         
