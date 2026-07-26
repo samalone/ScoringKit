@@ -12,7 +12,7 @@ throwouts and qualification requirements, breaks ties, and ranks the series.
 ## Installation
 
 ```swift
-.package(url: "https://github.com/samalone/ScoringKit.git", from: "0.1.0"),
+.package(url: "https://github.com/samalone/ScoringKit.git", from: "0.2.0"),
 ```
 
 then add `ScoringKit` to your target's dependencies. Requires Swift 5.9+,
