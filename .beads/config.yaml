@@ -66,3 +66,7 @@
 # - github.token    → use GITHUB_TOKEN env var instead
 
 sync.remote: "git+https://github.com/samalone/ScoringKit.git"
+export:
+    auto: false
+backup:
+    git-push: false

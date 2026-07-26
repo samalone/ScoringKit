@@ -14,3 +14,11 @@ build/
 *.db
 .beads-credential-key
 .beads/proxieddb/
+.beads/dolt/
+
+# Beads JSONL files are local-only in this project.
+# issues.jsonl is a regenerable export (auto-export is off; use `bd export`).
+# interactions.jsonl is an append-only local audit/recovery log — keep the file,
+# just don't track it.
+.beads/issues.jsonl
+.beads/interactions.jsonl
