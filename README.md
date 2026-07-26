@@ -123,32 +123,38 @@ so you can flag a race where places were duplicated or skipped.
 
 ## Scoring crews rather than boats
 
-`N` — the number of entries in a race — normally comes from the results
-themselves. When the competitors you score aren't the entries that raced, give
-your `Race` its own `competitorsInStartingArea`.
+An **entry** is the thing that races; a **competitor** is the thing that gets
+scored. Usually they're the same, and you need do nothing.
 
-The case this exists for: scoring every sailor aboard a boat individually. Each
-sailor is a competitor holding their boat's finishing place, but the fleet is
-still boats. Without the override the denominator would follow the head count,
-and the same finish would score differently depending on how many people came
-sailing that day.
+They come apart when several competitors share one entry — scoring every sailor
+aboard a boat individually, say, so each sailor is a competitor carrying their
+boat's finishing place while the fleet is still boats. Tell a `Race` which entry
+each competitor raced in:
 
 ```swift
 struct CrewedRace: Race {
-    let results: [Sailor: RaceResult]   // one entry per sailor
-    let competitorsInStartingArea: Int  // ...but N is the number of boats
+    let results: [Sailor: RaceResult]  // one result per sailor...
+    let boats: [Sailor: BoatID]        // ...and the boat each of them sailed
+
+    func entry(for sailor: Sailor) -> BoatID { boats[sailor]! }
 }
 
-// Three boats. Ana and Ben win together; their score is out of 3, not 6.
+// Three boats, six sailors. Ana and Ben win together; both score 3 of 3.
 let race = CrewedRace(results: [ana: 1, ben: 1, cy: 2, dee: 2, eli: 3, fay: 3],
-                      competitorsInStartingArea: 3)
+                      boats: [ana: x, ben: x, cy: y, dee: y, eli: z, fay: z])
 ```
 
-**Known limitation.** ScoringKit sees only the finishing places, so it cannot yet
-tell a boat's crew — one entry at one place — from two boats genuinely tied at
-that place. It treats both as a tie and applies A7, which means a crew of three
-currently scores worse than a crew of two aboard the same boat. Giving a `Race`
-a way to say which competitors share an entry is the fix, and is still to come.
+Two things follow from that. `N` becomes the number of distinct entries that
+competed, so the denominator counts boats rather than heads and the same finish
+scores the same however many people came sailing that day. And A7 applies
+between entries: two boats at one place are tied and split the points for their
+places, while one boat's crew at one place are not tied and take their boat's
+points undivided — so a crew of four scores exactly what a crew of two would.
+`RaceScore.status` follows the same rule, and reports `.tied` only for boats
+that really tied.
+
+`N` can still be set by hand with `competitorsInStartingArea` when the fleet
+isn't the entries in `results`.
 
 ## Rendering results
 
