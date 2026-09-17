@@ -22,3 +22,6 @@ build/
 # just don't track it.
 .beads/issues.jsonl
 .beads/interactions.jsonl
+
+# Beads / Dolt files (added by bd init)
+*.gate.lock*
